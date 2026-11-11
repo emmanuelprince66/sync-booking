@@ -1,12 +1,9 @@
-import { ArrowDownLeft, ArrowUpRight, Banknote, Send, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ShieldCheck, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { fieldBoxClass, fieldLabelClass } from '@/components/ui/Field'
-import { ErrorState } from '@/components/ui/misc'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { useKycPayouts } from '../hooks/useKycPayouts'
-import { TransferModal } from './wallet/TransferModal'
-import { WalletTransactions } from './wallet/WalletTransactions'
+import { useKycPayouts, type KycPayoutsModel } from '../hooks/useKycPayouts'
 
 function ReadOnlyField({ label, value, isLoading }: { label: string; value: string; isLoading?: boolean }) {
   return <div className="min-w-0">
@@ -15,42 +12,29 @@ function ReadOnlyField({ label, value, isLoading }: { label: string; value: stri
   </div>
 }
 
-function Flow({ icon, label, value }: { icon: 'in' | 'out'; label: string; value: string }) {
-  return <div className="min-w-0 rounded-xl bg-white/[0.07] px-3 py-2.5">
-    <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white/55">{icon === 'in' ? <ArrowDownLeft size={13} className="text-[#D8FF72]"/> : <ArrowUpRight size={13} className="text-[#FFB4A8]"/>}{label}</p>
-    <p className="mt-1 truncate text-sm font-black">{value}</p>
-  </div>
-}
-
-function BalanceSkeleton() {
-  return <SkeletonGroup label="Loading balance" className="rounded-2xl bg-[#173A2E] p-5">
-    <Skeleton className="h-3 w-28 bg-white/15"/>
-    <Skeleton className="mt-3 h-8 w-44 bg-white/15"/>
-    <div className="mt-5 grid grid-cols-2 gap-2 sm:max-w-sm"><Skeleton className="h-14 rounded-xl bg-white/10"/><Skeleton className="h-14 rounded-xl bg-white/10"/></div>
+/** The balance at a glance; withdrawing, transfers, PIN and transactions are on the Wallet page. */
+function BalanceSummary({ tab }: { tab: KycPayoutsModel }) {
+  if (tab.balanceLoading) return <SkeletonGroup label="Loading balance" className="flex items-center justify-between gap-4 rounded-2xl bg-[#173A2E] p-5">
+    <div className="space-y-2"><Skeleton className="h-3 w-24 bg-white/15"/><Skeleton className="h-7 w-36 bg-white/15"/></div>
+    <Skeleton className="h-10 w-32 rounded-xl bg-white/15"/>
   </SkeletonGroup>
+  return <div className="flex min-w-0 flex-col justify-between gap-4 rounded-2xl bg-[#173A2E] p-5 text-white sm:flex-row sm:items-center">
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.08] text-[#D8FF72]"><Wallet size={20}/></span>
+      <div className="min-w-0">
+        <p className="text-xs font-bold text-white/55">Wallet balance</p>
+        <p className="truncate text-2xl font-black">{tab.balanceError ? '—' : tab.balanceLabel}</p>
+        <p className="truncate text-[11px] font-semibold text-white/45">{tab.balanceError ? 'Couldn’t load your balance' : tab.balanceNote}</p>
+      </div>
+    </div>
+    <Button onClick={tab.goToWallet} className="w-full shrink-0 bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A] sm:w-auto">Go to wallet <ArrowRight size={16}/></Button>
+  </div>
 }
 
 export function KycPayoutsTab() {
   const tab = useKycPayouts()
-  if (tab.isError) return <ErrorState title="We couldn’t load your wallet" onRetry={tab.retry}/>
   return <div className="flex flex-col gap-4">
-    {tab.isLoading
-      ? <BalanceSkeleton/>
-      : <div className="flex min-w-0 flex-col gap-5 rounded-2xl bg-[#173A2E] p-5 text-white">
-        <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-white/55">Available balance</p>
-            <p className="mt-2 break-words text-2xl font-black sm:text-3xl">{tab.balanceLabel}</p>
-            <p className="mt-1 text-[11px] font-bold text-[#D8FF72]">{tab.balanceNote}</p>
-            {tab.walletAccount && <p className="mt-1 truncate text-[11px] font-semibold text-white/45">Wallet · {tab.walletAccount}</p>}
-          </div>
-          <Button onClick={tab.openTransfer} disabled={!tab.canTransfer} className="w-full shrink-0 bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A] sm:w-auto"><Send size={16}/> Transfer</Button>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
-          <Flow icon="in" label="Money in" value={tab.inflowLabel}/>
-          <Flow icon="out" label="Money out" value={tab.outflowLabel}/>
-        </div>
-      </div>}
+    <BalanceSummary tab={tab}/>
     <div className="rounded-2xl border border-border bg-white p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex min-w-0 items-center gap-4">
@@ -64,10 +48,8 @@ export function KycPayoutsTab() {
       </div>
       <div className="mt-6 border-t border-border pt-5">
         <ReadOnlyField label="Payout bank" value={tab.payoutBank} isLoading={tab.payoutBankLoading}/>
+        <p className="mt-2 text-[11px] font-semibold text-[#8A9C93]">Withdraw your balance to this account from the Wallet page.</p>
       </div>
-      <div className="mt-5 flex justify-end"><Button variant="outline" onClick={tab.openWithdraw} disabled={!tab.canWithdraw} className="w-full sm:w-auto"><Banknote size={16}/> Withdraw to payout bank</Button></div>
     </div>
-    <WalletTransactions bankId={tab.bankId}/>
-    {tab.transferOpen && <TransferModal bankId={tab.bankId} balance={tab.balance} hasPin={tab.hasPin} senderName={tab.senderName} preset={tab.transferPreset} onClose={tab.closeTransfer}/>}
   </div>
 }

@@ -5,19 +5,23 @@ import { Field, TextareaField } from '@/components/ui/Field'
 import { BackLink } from '@/components/ui/misc'
 import { Modal, ModalFooter, ModalHeader } from '@/components/ui/Modal'
 import { OptionSelect } from '@/components/ui/OptionSelect'
-import { OtpInput } from '@/components/ui/OtpInput'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { WALLET_PIN_LENGTH } from '@/api/wallet'
 import { cn } from '@/lib/cn'
-import { useTransferFlow, type TransferFlow, type TransferPreset } from '../../hooks/useTransferFlow'
+import { useTransferFlow, type TransferFlow, type TransferPreset } from '../hooks/useTransferFlow'
+import { ErrorNote, PinInput } from './walletUi'
 
-type TransferModalProps = { bankId: string | null; balance: number; hasPin: boolean; senderName: string; preset?: TransferPreset; onClose: () => void }
-
-const pinBoxes = 'mx-auto mt-3 flex max-w-[260px] gap-2 sm:gap-3'
-
-function ErrorNote({ message }: { message: string }) {
-  return message ? <p role="alert" className="flex items-start gap-2 rounded-xl bg-[#FDECEA] px-3 py-2.5 text-xs font-bold text-[#B23F35]"><AlertCircle size={15} className="mt-px shrink-0"/>{message}</p> : null
+type TransferModalProps = {
+  bankId: string | null
+  balance: number
+  hasPin: boolean
+  senderName: string
+  preset?: TransferPreset
+  onClose: () => void
+  /** Opens the PIN reset on top of this dialog, so the transfer is kept. */
+  onForgotPin?: () => void
 }
+
 
 function SummaryLine({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return <div className={cn('flex items-start justify-between gap-4 text-xs', strong && 'border-t border-[#DEE8E1] pt-3')}>
@@ -36,11 +40,11 @@ function PinSetupStep({ flow }: { flow: TransferFlow }) {
     </div>
     <div>
       <p className="text-center text-[11px] font-extrabold uppercase tracking-wide text-[#82988E]">Choose a PIN</p>
-      <OtpInput value={pinSetup.pin} onChange={pinSetup.setPin} length={WALLET_PIN_LENGTH} label="New PIN digit" masked className={pinBoxes}/>
+      <PinInput value={pinSetup.pin} onChange={pinSetup.setPin} label="New PIN digit"/>
     </div>
     <div>
       <p className="text-center text-[11px] font-extrabold uppercase tracking-wide text-[#82988E]">Confirm PIN</p>
-      <OtpInput value={pinSetup.confirm} onChange={pinSetup.setConfirm} length={WALLET_PIN_LENGTH} label="Confirm PIN digit" masked className={pinBoxes}/>
+      <PinInput value={pinSetup.confirm} onChange={pinSetup.setConfirm} label="Confirm PIN digit"/>
     </div>
     <ErrorNote message={flow.error}/>
     <p className="text-center text-xs font-semibold text-[#8A9C93]">Already set one? <button type="button" onClick={pinSetup.skip} className="font-extrabold text-[#24764F] hover:underline">Continue to transfer</button></p>
@@ -99,7 +103,7 @@ function AmountStep({ flow }: { flow: TransferFlow }) {
   </div>
 }
 
-function ConfirmStep({ flow }: { flow: TransferFlow }) {
+function ConfirmStep({ flow, onForgotPin }: { flow: TransferFlow; onForgotPin?: () => void }) {
   const { confirm } = flow
   return <div className="space-y-5">
     <div className="space-y-3 rounded-2xl bg-[#F2F7F3] p-4">
@@ -108,7 +112,8 @@ function ConfirmStep({ flow }: { flow: TransferFlow }) {
     </div>
     <div>
       <p className="text-center text-[11px] font-extrabold uppercase tracking-wide text-[#82988E]">Enter your {WALLET_PIN_LENGTH}-digit wallet PIN</p>
-      <OtpInput value={confirm.pin} onChange={confirm.setPin} length={WALLET_PIN_LENGTH} label="PIN digit" masked className={pinBoxes}/>
+      <PinInput value={confirm.pin} onChange={confirm.setPin} label="PIN digit"/>
+      {onForgotPin && <p className="mt-3 text-center text-xs font-semibold text-[#8A9C93]"><button type="button" onClick={onForgotPin} disabled={confirm.submitting} className="font-extrabold text-[#24764F] hover:underline">Forgot PIN?</button></p>}
     </div>
     <ErrorNote message={flow.error}/>
   </div>
@@ -147,7 +152,7 @@ export function TransferModal(props: TransferModalProps) {
       {flow.step === 'pin' && <PinSetupStep flow={flow}/>}
       {flow.step === 'recipient' && <RecipientStep flow={flow}/>}
       {flow.step === 'amount' && <AmountStep flow={flow}/>}
-      {flow.step === 'confirm' && <ConfirmStep flow={flow}/>}
+      {flow.step === 'confirm' && <ConfirmStep flow={flow} onForgotPin={props.onForgotPin}/>}
       {flow.step === 'done' && <DoneStep flow={flow}/>}
     </div>
     <ModalFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">

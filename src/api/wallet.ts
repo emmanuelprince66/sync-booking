@@ -16,6 +16,10 @@ import { sample, type SampleWalletTrx } from './sample-data'
  *  GET  wallet/recent_beneficiaries/{bank_id}/?limit=6  accounts paid before
  *  GET  category/business/{business_id}/?type=EXPENSES  optional transfer category
  *  POST wallet/set_pin/{business_id}/      { pin }      4-digit wallet PIN, when business.pin is empty
+ *  POST wallet/change_pin/{business_id}/   { old_pin, new_pin }
+ *  GET  wallet/request_reset_pin_email/{business_id}/   emails a 6-digit reset code
+ *  POST wallet/verify_pin_reset_code/{business_id}/ { token } → { uid64 }
+ *  PATCH wallet/reset_pin/{business_id}/   { uid64, pin }
  *  POST wallet/transfer/{bank_id}/         { pin, ref, amount, narration, category? } → { message, reference } (202 = still processing)
  * The bank id is the primary account in business.banks (is_sub !== true).
  */
@@ -31,8 +35,11 @@ export const DEFAULT_TRANSACTION_FILTERS: TransactionFilters = { page: 1, limit:
 export const transferCharge = (amount: number) => (!(amount > 0) ? 0 : amount <= 5000 ? 10 : amount <= 50000 ? 25 : 50)
 
 const MOCK_BANK_ID = 'sample-bank-1'
-/** Mock mode's wallet PIN; replaced when the PIN is created in the transfer flow. */
+/** Mock mode's wallet PIN (1234 until it is set, changed or reset). */
 const mockPin = { value: '1234' }
+/** Mock mode's emailed PIN reset code. */
+export const MOCK_PIN_RESET_CODE = '123456'
+const MOCK_UID64 = 'bW9jay1waW4tcmVzZXQ'
 
 // ─── GET wallet/{bank_id}/ (one cache entry per bank + filters) ─────────────
 
@@ -239,11 +246,21 @@ export const useExpenseCategories = (enabled: boolean) => {
   return useQuery({ queryKey: [...queryKeys.wallet, 'expense-categories', scope], queryFn: getExpenseCategories, enabled: enabled && ready, staleTime: 5 * 60 * 1000 })
 }
 
+// ─── Wallet PIN (sink: api/transactions/set-pin, change-pin, request-reset, verify-token, reset-pin) ───
+// Every PIN call is keyed on the business id, not the wallet's bank id.
+
+/** business.pin flips on the business record, and hasPin on the wallet overview. */
+const refreshPinStatus = (client: ReturnType<typeof useQueryClient>) => {
+  void client.invalidateQueries({ queryKey: queryKeys.business })
+  void refreshWallet(client)
+}
+
 const setPin = async (pin: string) => {
   if (!isLive()) {
+    await mockDelay(null, 600)
     sample.wallet = { ...sample.wallet, hasPin: true }
     mockPin.value = pin
-    return mockDelay(null, 600)
+    return null
   }
   return apiRequest<unknown>(`wallet/set_pin/${requireBusinessId()}/`, { method: 'POST', body: { pin } })
 }
@@ -251,14 +268,65 @@ const setPin = async (pin: string) => {
 /** Creates the wallet PIN, then refreshes the business record (business.pin) and the wallet. */
 export const useSetWalletPin = () => {
   const client = useQueryClient()
-  return useMutation({
-    mutationFn: setPin,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.business })
-      void refreshWallet(client)
-    },
-  })
+  return useMutation({ mutationFn: setPin, onSuccess: () => refreshPinStatus(client) })
 }
+
+export type ChangePinInput = { oldPin: string; newPin: string }
+
+const changePin = async ({ oldPin, newPin }: ChangePinInput) => {
+  if (!isLive()) {
+    await mockDelay(null, 600)
+    if (oldPin !== mockPin.value) throw new Error('Your current PIN is incorrect.')
+    mockPin.value = newPin
+    return null
+  }
+  return apiRequest<unknown>(`wallet/change_pin/${requireBusinessId()}/`, { method: 'POST', body: { old_pin: oldPin, new_pin: newPin } })
+}
+
+export const useChangeWalletPin = () => useMutation({ mutationFn: changePin })
+
+/** Emails a reset code. A mutation, not a query, so each "Send"/"Resend" is exactly one request. */
+const requestPinReset = async () => {
+  if (!isLive()) return mockDelay(null, 700)
+  return apiRequest<unknown>(`wallet/request_reset_pin_email/${requireBusinessId()}/`)
+}
+
+export const useRequestPinReset = () => useMutation({ mutationFn: requestPinReset })
+
+/** Checks the emailed code; the returned uid64 authorises the reset. */
+const verifyPinResetCode = async (token: string): Promise<string> => {
+  if (!isLive()) {
+    await mockDelay(null, 600)
+    if (token !== MOCK_PIN_RESET_CODE) throw new Error('Invalid or expired code.')
+    return MOCK_UID64
+  }
+  const response = await apiRequest<unknown>(`wallet/verify_pin_reset_code/${requireBusinessId()}/`, { method: 'POST', body: { token } })
+  const uid64 = str(at(response, 'uid64')) || str(at(response, 'data.uid64'))
+  if (!uid64) throw new Error('We couldn’t verify this code. Request a new one.')
+  return uid64
+}
+
+export const useVerifyPinResetCode = () => useMutation({ mutationFn: verifyPinResetCode })
+
+export type ResetPinInput = { uid64: string; pin: string }
+
+const resetPin = async ({ uid64, pin }: ResetPinInput) => {
+  if (!isLive()) {
+    await mockDelay(null, 600)
+    if (uid64 !== MOCK_UID64) throw new Error('This reset link has expired. Start again.')
+    sample.wallet = { ...sample.wallet, hasPin: true }
+    mockPin.value = pin
+    return null
+  }
+  return apiRequest<unknown>(`wallet/reset_pin/${requireBusinessId()}/`, { method: 'PATCH', body: { uid64, pin } })
+}
+
+export const useResetWalletPin = () => {
+  const client = useQueryClient()
+  return useMutation({ mutationFn: resetPin, onSuccess: () => refreshPinStatus(client) })
+}
+
+// ─── Sending money ─────────────────────────────────────────────────────────
 
 export type TransferInput = {
   bankId: string

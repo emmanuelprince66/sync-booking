@@ -6,7 +6,7 @@ import { GuestOnly, RequireAuth, RequireBusiness } from './guards'
 import { pages } from './pages'
 import { paths } from './paths'
 
-const { AuthPage, SelectBusinessPage, OverviewPage, CalendarPage, BookingsPage, ClientsPage, ClientDetailPage, ServicesPage, CategoriesPage, AvailabilityPage, StorefrontPage, SettingsPage, KycPage, TeamPage, BranchesPage, BranchStaffPage } = pages
+const { AuthPage, SelectBusinessPage, OverviewPage, CalendarPage, BookingsPage, WalletPage, ClientsPage, ClientDetailPage, ServicesPage, CategoriesPage, AvailabilityPage, StorefrontPage, SettingsPage, KycPage, TeamPage, BranchesPage, BranchStaffPage } = pages
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +31,7 @@ export const router = createBrowserRouter([
           { index: true, element: <OverviewPage/> },
           { path: paths.calendar, element: <CalendarPage/> },
           { path: paths.bookings, element: <BookingsPage/> },
+          { path: paths.wallet, element: <WalletPage/> },
           { path: paths.clients, element: <ClientsPage/> },
           { path: paths.clientDetail, element: <ClientDetailPage/> },
           { path: paths.services, element: <ServicesPage/> },

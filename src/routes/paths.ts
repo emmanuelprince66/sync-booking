@@ -9,6 +9,7 @@ export const paths = {
   overview: '/',
   calendar: '/calendar',
   bookings: '/bookings',
+  wallet: '/wallet',
   clients: '/clients',
   clientDetail: '/clients/:clientId',
   services: '/services',

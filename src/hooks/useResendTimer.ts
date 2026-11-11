@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-/** Counts down once per second; `restart` starts it again. */
+/** Counts down once per second; `restart` starts it again (from `seconds`, or the given count). */
 export function useResendTimer(seconds: number) {
   const [remaining, setRemaining] = useState(seconds)
 
@@ -13,7 +13,7 @@ export function useResendTimer(seconds: number) {
   return {
     remaining,
     canResend: remaining <= 0,
-    label: `00:${String(Math.max(remaining, 0)).padStart(2, '0')}`,
-    restart: () => setRemaining(seconds),
+    label: `${String(Math.floor(Math.max(remaining, 0) / 60)).padStart(2, '0')}:${String(Math.max(remaining, 0) % 60).padStart(2, '0')}`,
+    restart: (from = seconds) => setRemaining(from),
   }
 }

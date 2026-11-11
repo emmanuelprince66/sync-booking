@@ -157,8 +157,8 @@ export function useNewBookingModal() {
       field: {
         ...clientField,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
-          setAddingClient(false)
-          clientList.open()
+          // While adding a new client the box is just their name, so no search list.
+          if (!addingClient) clientList.open()
           return clientField.onChange(event)
         },
         onClick: clientList.open,
@@ -173,6 +173,9 @@ export function useNewBookingModal() {
       showResults: clientList.isOpen && !customerId && !addingClient && (clientResults.length > 0 || canAddClient),
       canAddNew: canAddClient,
       startAdding: () => { setAddingClient(true); clientList.close() },
+      /** The + button: a blank new client, typed straight into the name box. */
+      startNew: () => { clearClient(); setAddingClient(true); clientList.close() },
+      cancelAdding: () => { setAddingClient(false); setValue('clientPhone', ''); setValue('clientEmail', '') },
       pick: (client: Customer) => { pickClient(client); clientList.close() },
       clear: clearClient,
     },
@@ -199,6 +202,8 @@ export function useNewBookingModal() {
     isClosedDay: Boolean(day?.isClosed),
     time: values.time ?? '',
     setTime: (time: string) => setValue('time', time),
+    /** A typed time that isn't one of the suggested slots. */
+    isCustomTime: Boolean(values.time) && !slots.includes(values.time ?? ''),
   }
 }
 

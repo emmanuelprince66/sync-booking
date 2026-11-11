@@ -22,15 +22,21 @@ function ClientPicker({ model }: { model: NewBookingModel }) {
         <div className="min-w-0 flex-1"><p className="truncate text-sm font-extrabold text-[#173A2E]">{client.name}</p><p className="truncate text-[11px] font-semibold text-[#60796E]">{client.phone || 'No phone number'}</p></div>
         <button type="button" aria-label="Choose another client" onClick={client.clear} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#536B60] hover:bg-white/60"><X size={15}/></button>
       </div>
-      : <div className={cn(fieldBoxClass, errors.clientName && 'border-[#C2483D]')}>
-        <Search size={15} className="mr-2 shrink-0 text-[#82988E]"/>
-        <input id="new-booking-client" autoComplete="off" placeholder="Search or add a new customer" className="w-full min-w-0 flex-1 bg-transparent py-3 text-sm font-bold text-[#405B50] outline-none placeholder:font-semibold placeholder:text-[#9DAEA6]" {...client.field}/>
+      : <div className="flex items-stretch gap-2">
+        <div className={cn(fieldBoxClass, 'min-w-0 flex-1', errors.clientName && 'border-[#C2483D]')}>
+          {client.adding ? <Plus size={15} className="mr-2 shrink-0 text-[#24764F]"/> : <Search size={15} className="mr-2 shrink-0 text-[#82988E]"/>}
+          <input id="new-booking-client" autoComplete="off" placeholder={client.adding ? 'New client’s full name' : 'Search or add a new customer'} className="w-full min-w-0 flex-1 bg-transparent py-3 text-sm font-bold text-[#405B50] outline-none placeholder:font-semibold placeholder:text-[#9DAEA6]" {...client.field}/>
+        </div>
+        {client.adding
+          ? <button type="button" aria-label="Cancel new client" title="Back to search" onClick={client.cancelAdding} className="grid w-12 shrink-0 place-items-center rounded-xl border border-border bg-white text-[#536B60] hover:border-[#329661]"><X size={17}/></button>
+          : <button type="button" aria-label="Add a new client" title="Add a new client" onClick={client.startNew} className="grid w-12 shrink-0 place-items-center rounded-xl bg-[#173A2E] text-white hover:bg-[#24503F]"><Plus size={18}/></button>}
       </div>}
     {errors.clientName && <span role="alert" className={fieldErrorClass}>{errors.clientName.message}</span>}
     {client.showResults && <div className="mt-2 flex max-h-44 flex-col gap-0.5 overflow-y-auto rounded-xl border border-border p-1">
       {client.results.map(item => <button key={item.id} type="button" onClick={() => client.pick(item)} className="flex w-full flex-col rounded-lg px-2.5 py-2 text-left hover:bg-[#F2F6F1]"><span className="truncate text-xs font-extrabold text-[#29483B]">{item.name}</span><span className="truncate text-[11px] font-semibold text-[#8A9C93]">{item.phone || item.email || 'No contact details'}</span></button>)}
       {client.canAddNew && <button type="button" onClick={client.startAdding} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-black text-[#24764F] hover:bg-[#F2F6F1]"><Plus size={14} className="shrink-0"/><span className="truncate">Add “{client.name.trim()}” as a new client</span></button>}
     </div>}
+    {client.adding && <p className="mt-2 text-[11px] font-semibold text-[#60796E]">New client: they’re saved to your clients when you confirm the booking.</p>}
     {client.adding && <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
       <Field label="Phone number" type="tel" placeholder="0803 245 7791" error={errors.clientPhone?.message} {...register('clientPhone')}/>
       <Field label="Email (optional)" type="email" placeholder="client@email.com" error={errors.clientEmail?.message} {...register('clientEmail')}/>
@@ -66,7 +72,7 @@ function DetailsStep({ model }: { model: NewBookingModel }) {
 }
 
 function TimeStep({ model }: { model: NewBookingModel }) {
-  const { goBack, dateLabel, slots, slotsLoading, isClosedDay, time, setTime, register } = model
+  const { goBack, dateLabel, slots, slotsLoading, isClosedDay, time, setTime, isCustomTime, register } = model
   return <div>
     <div className="mb-4 flex items-center justify-between gap-3"><BackLink label="Back" onClick={goBack}/><p className="text-sm font-black text-[#173A2E]">{dateLabel}</p></div>
     {slotsLoading
@@ -74,6 +80,13 @@ function TimeStep({ model }: { model: NewBookingModel }) {
       : slots.length === 0
         ? <EmptyState title={isClosedDay ? 'You’re closed on this day' : 'No free times on this day'} text="Go back and pick another date, or change the attendee." className="py-6"/>
         : <div className="grid grid-cols-3 gap-2">{slots.map(slot => <button key={slot} type="button" aria-pressed={slot === time} onClick={() => setTime(slot)} className={cn('rounded-xl border py-3 font-mono text-xs font-bold', slot === time ? 'border-[#173A2E] bg-[#173A2E] text-white' : 'border-border text-[#456055] hover:border-[#329661]')}>{slot}</button>)}</div>}
+    <label className="mt-4 block">
+      <span className={fieldLabelClass}>Specific time</span>
+      <span className={cn(fieldBoxClass, isCustomTime && 'border-[#173A2E] ring-2 ring-[#173A2E]/10')}>
+        <input type="time" step={300} value={isCustomTime ? time : ''} onChange={event => setTime(event.target.value)} aria-label="Specific time" className="w-full min-w-0 bg-transparent py-3 font-mono text-sm font-bold text-[#405B50] outline-none"/>
+      </span>
+      <span className="mt-1.5 block text-[11px] font-semibold text-[#82988E]">Not in the list above? Enter any time you’ve agreed with the client.</span>
+    </label>
     <TextareaField label="Notes (optional)" rows={2} placeholder="Anything the attendee should know" className="mt-5" {...register('notes')}/>
   </div>
 }

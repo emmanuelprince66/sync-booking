@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { errorMessage, useLogin, useVerifyPhone } from '@/api/auth'
 import { paths } from '@/routes/paths'
 import { OTP_LENGTH, RESEND_SECONDS } from '../constants'
-import { useResendTimer } from './useResendTimer'
+import { useResendTimer } from '@/hooks/useResendTimer'
 import { useSignupStore } from './useSignupStore'
 
 /** Verifies the phone code, then signs in with the signup credentials so onboarding can continue. */

@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, PillTabs } from '@/components/ui/misc'
 import { Modal, ModalHeader } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { cn } from '@/lib/cn'
-import { TYPE_FILTERS, formatTrxDate, statusTone, useWalletTransactionsList, type WalletTransactionsModel } from '../../hooks/useWalletTransactions'
+import { TYPE_FILTERS, formatTrxDate, statusTone, useWalletTransactionsList, type WalletTransactionsModel } from '../hooks/useWalletTransactions'
 
 const pill = (tone: 'green' | 'red' | 'amber' | 'grey') => cn('inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold', {
   green: 'bg-[#E2F7E9] text-[#157443]', red: 'bg-[#FDECEA] text-[#B23F35]', amber: 'bg-[#FFF1CB] text-[#946000]', grey: 'bg-[#EEF3F0] text-[#53665D]',
