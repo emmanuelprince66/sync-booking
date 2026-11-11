@@ -28,6 +28,8 @@ export function useNewBookingModal() {
   const money = useFormatMoney()
   const [step, setStep] = useState<1 | 2>(1)
   const [addingClient, setAddingClient] = useState(false)
+  /** The + button opens the full Add client form (the same one as the Clients page). */
+  const clientForm = useDisclosure()
 
   const form = useForm<NewBookingValues>({
     resolver: zodResolver(newBookingSchema),
@@ -173,8 +175,11 @@ export function useNewBookingModal() {
       showResults: clientList.isOpen && !customerId && !addingClient && (clientResults.length > 0 || canAddClient),
       canAddNew: canAddClient,
       startAdding: () => { setAddingClient(true); clientList.close() },
-      /** The + button: a blank new client, typed straight into the name box. */
-      startNew: () => { clearClient(); setAddingClient(true); clientList.close() },
+      /** The + button: the full Add client form; the saved client is selected for this booking. */
+      startNew: () => { clientList.close(); clientForm.open() },
+      isFormOpen: clientForm.isOpen,
+      closeForm: clientForm.close,
+      onCreated: (created: Customer) => pickClient(created),
       cancelAdding: () => { setAddingClient(false); setValue('clientPhone', ''); setValue('clientEmail', '') },
       pick: (client: Customer) => { pickClient(client); clientList.close() },
       clear: clearClient,

@@ -28,7 +28,8 @@ const toValues = (client: Customer | null): ClientValues => ({
 })
 
 /** Sink's customer form: same fields, rules and payload. Mounted with the dialog, so it opens with the saved values. */
-export function useClientForm(client: Customer | null, onClose: () => void) {
+/** `onSaved` receives a newly added client, e.g. so the booking dialog can select them. */
+export function useClientForm(client: Customer | null, onClose: () => void, onSaved?: (customer: Customer) => void) {
   const create = useCreateCustomer()
   const update = useUpdateCustomer()
   const statesQuery = useNigeriaStates()
@@ -150,7 +151,7 @@ export function useClientForm(client: Customer | null, onClose: () => void) {
       }
       try {
         if (client) await update.mutateAsync({ id: client.id, input })
-        else await create.mutateAsync(input)
+        else onSaved?.(await create.mutateAsync(input))
         toast.success(client ? 'Client updated' : 'Client added')
         onClose()
       } catch (error) {

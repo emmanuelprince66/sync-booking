@@ -22,8 +22,8 @@ function PhoneMatches({ matches, onFill }: { matches: Customer[]; onFill: (clien
 }
 
 /** Add or edit a client, with every field sink's customer form has. Header and footer stay put while the body scrolls. */
-export function ClientFormModal({ client, onClose }: { client: Customer | null; onClose: () => void }) {
-  const form = useClientForm(client, onClose)
+export function ClientFormModal({ client, onClose, onSaved }: { client: Customer | null; onClose: () => void; onSaved?: (customer: Customer) => void }) {
+  const form = useClientForm(client, onClose, onSaved)
   return <FormModal open onClose={onClose} eyebrow="Clients" title={form.isEditing ? 'Edit client' : 'Add a client'} maxWidthClassName="max-w-[600px]" onSubmit={form.onSubmit} footer={<>
     <Button variant="ghost" onClick={onClose}>Cancel</Button>
     <Button type="submit" loading={form.isSubmitting}>{form.isEditing ? 'Save changes' : 'Save client'}</Button>
