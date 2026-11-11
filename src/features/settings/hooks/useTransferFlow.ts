@@ -1,3 +1,4 @@
+import { at, str } from '@/api/http'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
@@ -21,6 +22,8 @@ export type TransferReceipt = {
   reference: string
   date: string
   senderName: string
+  /** The backend accepted it (202) but the payout hasn't settled yet. */
+  pending: boolean
 }
 
 /** A known account to start from, e.g. the payout bank ("Withdraw to payout bank"). */
@@ -105,8 +108,11 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
     if (!bankId || !beneficiary) return setError('Your wallet account isn’t ready yet. Complete KYC first.')
     transfer.mutate({ bankId, pin, ref: beneficiary.ref, amount: amountValue, narration: narration.trim(), categoryId: categoryId || undefined, beneficiary: { name: beneficiary.name, accountNumber, bankName } }, {
       onSuccess: response => {
-        toast.success('Transfer successful')
-        setReceipt({ amount: amountValue, fee, beneficiaryName: beneficiary.name, accountNumber, bankName, narration: narration.trim(), category: categoryName, reference: extractTransactionId(response), date: new Date().toISOString(), senderName })
+        // A 202 answers "Transfer is being processed." — money is on its way, not yet settled.
+        const pending = /processed|processing|pending/i.test(str(at(response, 'message')))
+        if (pending) toast.info('Transfer is being processed')
+        else toast.success('Transfer successful')
+        setReceipt({ amount: amountValue, fee, beneficiaryName: beneficiary.name, accountNumber, bankName, narration: narration.trim(), category: categoryName, reference: extractTransactionId(response), date: new Date().toISOString(), senderName, pending })
         goTo('done')
       },
       onError: sendError => { setPinState(''); setError(errorMessage(sendError, 'Transfer failed. Please try again.')) },
@@ -193,6 +199,8 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
       submitting: transfer.isPending,
     },
     receipt: receipt && {
+      title: receipt.pending ? 'Transfer processing' : 'Transfer successful',
+      note: receipt.pending ? 'Your bank is still confirming this transfer. Check your transactions in a few minutes.' : '',
       amountLabel: money(receipt.amount),
       rows: [
         { label: 'Beneficiary', value: receipt.beneficiaryName },

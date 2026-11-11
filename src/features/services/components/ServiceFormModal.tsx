@@ -36,6 +36,7 @@ export function ServiceFormModal({ service, onClose }: { service: Service | null
           {form.legacyImage && <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#CDEEDC]">
             <img src={form.legacyImage} alt="Current service image" className="h-full w-full object-cover"/>
             <span className="absolute inset-x-1.5 bottom-1.5 rounded-lg bg-white/85 px-1.5 py-0.5 text-center text-[9px] font-black text-[#29483B]">Current</span>
+            <button type="button" aria-label="Remove current image" onClick={form.removeLegacyImage} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-white/85 text-[#29483B]"><X size={12}/></button>
           </div>}
           {form.images.map((image, index) => <div key={image.key} className="relative aspect-square overflow-hidden rounded-2xl bg-[#CDEEDC]">
             <img src={image.url} alt={`Service image ${index + 1}`} className="h-full w-full object-cover"/>

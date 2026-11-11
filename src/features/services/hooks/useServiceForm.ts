@@ -23,7 +23,9 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
   /** kept_media_ids is only sent once the gallery has been changed. */
   const [galleryTouched, setGalleryTouched] = useState(false)
   /** Older services carry a single `image` and no gallery: shown until the gallery gets images of its own. */
-  const legacyImage = service && service.media.length === 0 && service.image && images.length === 0 ? service.image : ''
+  // Removing it sends kept_media_ids="", which the backend also uses to clear the old `image`.
+  const [legacyRemoved, setLegacyRemoved] = useState(false)
+  const legacyImage = service && !legacyRemoved && service.media.length === 0 && service.image && images.length === 0 ? service.image : ''
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
 
   const form = useForm<ServiceValues>({
@@ -82,6 +84,10 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
       const added = valid.slice(0, Math.max(0, room)).map((file, index) => ({ key: `new-${Date.now()}-${index}`, url: URL.createObjectURL(file), file }))
       if (!added.length) return
       setImages(current => [...current, ...added])
+      setGalleryTouched(true)
+    },
+    removeLegacyImage: () => {
+      setLegacyRemoved(true)
       setGalleryTouched(true)
     },
     removeImage: (key: string) => {

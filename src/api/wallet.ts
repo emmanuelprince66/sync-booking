@@ -12,11 +12,11 @@ import { sample, type SampleWalletTrx } from './sample-data'
  *  GET  wallet/{bank_id}/?page&limit&search&type&start_date&end_date
  *       → { results: { wallet_details, inflow, outflow, transactions, tier, nin, bvn }, pages, total }
  *  GET  wallet/banks/                                   transfer bank list (api/banks.ts)
- *  POST wallet/beneficiary_enquiry/       { bank_code, account_number } → { data: { name, ref } }
+ *  POST wallet/beneficiary_enquiry/       { bank_code, account_number } → { name, ref } (400 { message } when not found)
  *  GET  wallet/recent_beneficiaries/{bank_id}/?limit=6  accounts paid before
  *  GET  category/business/{business_id}/?type=EXPENSES  optional transfer category
  *  POST wallet/set_pin/{business_id}/      { pin }      4-digit wallet PIN, when business.pin is empty
- *  POST wallet/transfer/{bank_id}/         { pin, ref, amount, narration, category? }
+ *  POST wallet/transfer/{bank_id}/         { pin, ref, amount, narration, category? } → { message, reference } (202 = still processing)
  * The bank id is the primary account in business.banks (is_sub !== true).
  */
 

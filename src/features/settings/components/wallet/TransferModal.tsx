@@ -119,8 +119,9 @@ function DoneStep({ flow }: { flow: TransferFlow }) {
   if (!receipt) return null
   return <div>
     <SuccessIcon/>
-    <p className="mt-4 text-center text-xs font-extrabold uppercase tracking-wide text-[#82988E]">Transfer successful</p>
+    <p className="mt-4 text-center text-xs font-extrabold uppercase tracking-wide text-[#82988E]">{receipt.title}</p>
     <p className="mt-1 break-words text-center text-3xl font-black text-[#173A2E]">{receipt.amountLabel}</p>
+    {receipt.note && <p className="mt-2 rounded-xl bg-[#FFF6E4] px-3 py-2 text-center text-[11px] font-bold text-[#946000]">{receipt.note}</p>}
     <div className="mt-6 rounded-2xl border border-border px-4">
       {receipt.rows.map(row => <div key={row.label} className="flex items-start justify-between gap-4 border-b border-[#EDF1EF] py-3 text-xs last:border-0">
         <span className="shrink-0 font-semibold text-[#7D8D85]">{row.label}</span><span className="min-w-0 break-all text-right font-extrabold text-[#29483B]">{row.value}</span>
