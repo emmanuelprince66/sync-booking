@@ -1,30 +1,33 @@
-import { Banknote, ShieldCheck } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Banknote, Send, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Field, fieldBoxClass, fieldLabelClass } from '@/components/ui/Field'
-import { ErrorState, SampleDataBadge } from '@/components/ui/misc'
-import { FormModal } from '@/components/ui/Modal'
+import { fieldBoxClass, fieldLabelClass } from '@/components/ui/Field'
+import { ErrorState } from '@/components/ui/misc'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { useKycPayouts, useWithdrawForm } from '../hooks/useKycPayouts'
+import { useKycPayouts } from '../hooks/useKycPayouts'
+import { TransferModal } from './wallet/TransferModal'
+import { WalletTransactions } from './wallet/WalletTransactions'
 
-function ReadOnlyField({ label, value, isLoading, badge }: { label: string; value: string; isLoading?: boolean; badge?: boolean }) {
+function ReadOnlyField({ label, value, isLoading }: { label: string; value: string; isLoading?: boolean }) {
   return <div className="min-w-0">
-    <span className={cn(fieldLabelClass, 'flex flex-wrap items-center gap-2')}>{label}{badge && <SampleDataBadge/>}</span>
+    <span className={fieldLabelClass}>{label}</span>
     <div className={fieldBoxClass}>{isLoading ? <Skeleton className="h-4 w-32"/> : <span className="truncate py-3 text-sm font-bold text-[#405B50]">{value}</span>}</div>
   </div>
 }
 
-function WithdrawModal({ balance, bankId, onClose }: { balance: number; bankId: string | null; onClose: () => void }) {
-  const form = useWithdrawForm(balance, bankId, onClose)
-  return <FormModal open onClose={onClose} eyebrow="Payouts" title="Withdraw funds" description={`Available: ${form.balanceLabel}`} onSubmit={form.onSubmit} footer={<>
-    <Button variant="ghost" onClick={onClose}>Cancel</Button>
-    <Button type="submit" loading={form.isSubmitting}><Banknote size={16}/> Withdraw</Button>
-  </>}>
-    <div className="flex flex-col gap-4">
-      <Field label="Amount" inputMode="decimal" error={form.errors.amount?.message} {...form.register('amount')}/>
-      <Field label="Transaction PIN" type="password" inputMode="numeric" autoComplete="off" error={form.errors.pin?.message} {...form.register('pin')}/>
-    </div>
-  </FormModal>
+function Flow({ icon, label, value }: { icon: 'in' | 'out'; label: string; value: string }) {
+  return <div className="min-w-0 rounded-xl bg-white/[0.07] px-3 py-2.5">
+    <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white/55">{icon === 'in' ? <ArrowDownLeft size={13} className="text-[#D8FF72]"/> : <ArrowUpRight size={13} className="text-[#FFB4A8]"/>}{label}</p>
+    <p className="mt-1 truncate text-sm font-black">{value}</p>
+  </div>
+}
+
+function BalanceSkeleton() {
+  return <SkeletonGroup label="Loading balance" className="rounded-2xl bg-[#173A2E] p-5">
+    <Skeleton className="h-3 w-28 bg-white/15"/>
+    <Skeleton className="mt-3 h-8 w-44 bg-white/15"/>
+    <div className="mt-5 grid grid-cols-2 gap-2 sm:max-w-sm"><Skeleton className="h-14 rounded-xl bg-white/10"/><Skeleton className="h-14 rounded-xl bg-white/10"/></div>
+  </SkeletonGroup>
 }
 
 export function KycPayoutsTab() {
@@ -32,14 +35,21 @@ export function KycPayoutsTab() {
   if (tab.isError) return <ErrorState title="We couldn’t load your wallet" onRetry={tab.retry}/>
   return <div className="flex flex-col gap-4">
     {tab.isLoading
-      ? <SkeletonGroup label="Loading balances" className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-3">{Array.from({ length: 3 }, (_, index) => <Skeleton key={index} className="h-28 rounded-2xl"/>)}</SkeletonGroup>
-      : <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-3">
-        {tab.balances.map((card, index) => <div key={card.label} className={cn('min-w-0 rounded-2xl p-5', index === 0 ? 'bg-[#173A2E] text-white' : 'border border-border bg-white text-[#173A2E]')}>
-          <p className={cn('text-xs font-bold', index === 0 ? 'text-white/55' : 'text-[#7A8F85]')}>{card.label}</p>
-          <p className="mt-2 break-words text-2xl font-black">{card.value}</p>
-          <p className={cn('mt-1 text-[11px] font-bold', index === 0 ? 'text-[#D8FF72]' : 'text-[#8EA198]')}>{card.note}</p>
-          {card.isSample && <SampleDataBadge className="mt-2"/>}
-        </div>)}
+      ? <BalanceSkeleton/>
+      : <div className="flex min-w-0 flex-col gap-5 rounded-2xl bg-[#173A2E] p-5 text-white">
+        <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-white/55">Available balance</p>
+            <p className="mt-2 break-words text-2xl font-black sm:text-3xl">{tab.balanceLabel}</p>
+            <p className="mt-1 text-[11px] font-bold text-[#D8FF72]">{tab.balanceNote}</p>
+            {tab.walletAccount && <p className="mt-1 truncate text-[11px] font-semibold text-white/45">Wallet · {tab.walletAccount}</p>}
+          </div>
+          <Button onClick={tab.openTransfer} disabled={!tab.canTransfer} className="w-full shrink-0 bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A] sm:w-auto"><Send size={16}/> Transfer</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
+          <Flow icon="in" label="Money in" value={tab.inflowLabel}/>
+          <Flow icon="out" label="Money out" value={tab.outflowLabel}/>
+        </div>
       </div>}
     <div className="rounded-2xl border border-border bg-white p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -52,12 +62,12 @@ export function KycPayoutsTab() {
           <Button variant="outline" onClick={tab.goToKyc} className="h-9 rounded-lg px-3 text-xs"><ShieldCheck size={14}/> {tab.kycActionLabel}</Button>
         </div>
       </div>
-      <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-4 border-t border-border pt-5 sm:grid-cols-2">
+      <div className="mt-6 border-t border-border pt-5">
         <ReadOnlyField label="Payout bank" value={tab.payoutBank} isLoading={tab.payoutBankLoading}/>
-        <ReadOnlyField label="Payout schedule" value={tab.payoutSchedule} badge/>
       </div>
-      <div className="mt-5 flex justify-end"><Button onClick={tab.openWithdraw} disabled={!tab.canWithdraw}><Banknote size={16}/> Withdraw funds</Button></div>
+      <div className="mt-5 flex justify-end"><Button variant="outline" onClick={tab.openWithdraw} disabled={!tab.canWithdraw} className="w-full sm:w-auto"><Banknote size={16}/> Withdraw to payout bank</Button></div>
     </div>
-    {tab.withdrawOpen && <WithdrawModal balance={tab.balance} bankId={tab.bankId} onClose={tab.closeWithdraw}/>}
+    <WalletTransactions bankId={tab.bankId}/>
+    {tab.transferOpen && <TransferModal bankId={tab.bankId} balance={tab.balance} hasPin={tab.hasPin} senderName={tab.senderName} preset={tab.transferPreset} onClose={tab.closeTransfer}/>}
   </div>
 }

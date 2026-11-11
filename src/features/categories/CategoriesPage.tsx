@@ -41,6 +41,7 @@ export default function CategoriesPage() {
     {page.dialog?.mode === 'edit' && <CategoryFormModal category={page.dialog.category} onClose={page.closeDialog}/>}
     {page.dialog?.mode === 'delete' && <ConfirmModal onClose={page.closeDialog} eyebrow="Service categories" title="Delete category" confirmLabel="Delete category" cancelLabel="Keep category" isConfirming={page.isDeleting} onConfirm={() => void (page.dialog?.mode === 'delete' && page.confirmDelete(page.dialog.category))}>
       Delete <strong className="font-black text-[#173A2E]">{page.dialog.category.name}</strong>?{page.deleteNote(page.dialog.category)}
+      {page.deleteError && <span role="alert" className="mt-3 block rounded-xl border border-[#F3D9D5] bg-[#FFF8F6] p-3 text-xs font-bold text-[#9A3B2F]">{page.deleteError}</span>}
     </ConfirmModal>}
   </div>
 }

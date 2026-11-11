@@ -1,6 +1,6 @@
-import { CalendarClock, CheckCircle2, CreditCard, Mail, Phone, Plus, RotateCcw, UserRoundCheck, X } from 'lucide-react'
+import { CalendarClock, CheckCircle2, CreditCard, Mail, Phone, RotateCcw, UserRoundCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { BackLink, EmptyState, ErrorState, InitialsTile, SampleDataBadge } from '@/components/ui/misc'
+import { BackLink, EmptyState, ErrorState, InitialsTile } from '@/components/ui/misc'
 import { Drawer, ModalTitle } from '@/components/ui/Modal'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
@@ -46,21 +46,12 @@ export function BookingDetailsDrawer() {
       </div>
 
       <div className="rounded-2xl border border-border bg-white p-5">
-        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8A9C93]">Services booked</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8A9C93]">Service booked</p>
         <div className="mt-4 flex items-center gap-3">
           <InitialsTile initials={view.serviceInitials} color={view.serviceColor} className="h-11 w-11 rounded-xl text-xs"/>
           <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-[#29483B]">{booking.serviceName}</p><p className="text-xs font-bold text-[#84968E]">{view.duration}</p></div>
           <p className="text-sm font-black text-[#173A2E]">{view.price}</p>
         </div>
-        {details.extra && <div className="mt-3 border-t border-border pt-3">
-          <div className="flex items-center gap-3">
-            <InitialsTile initials={details.extra.initials} color="bg-[#CDEEDC]" className="h-11 w-11 rounded-xl text-xs"/>
-            <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-[#29483B]">{details.extra.name}</p><p className="text-xs font-bold text-[#84968E]">{details.extra.durationLabel}</p></div>
-            <p className="text-sm font-black text-[#173A2E]">{details.extra.price}</p>
-          </div>
-          <SampleDataBadge className="mt-2"/>
-        </div>}
-        {!details.extra && <button type="button" onClick={details.showExtra} className="mt-4 flex items-center gap-1.5 text-xs font-black text-[#24764F]"><Plus size={14}/> Add another service</button>}
       </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">

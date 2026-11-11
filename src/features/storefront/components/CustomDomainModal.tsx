@@ -34,7 +34,7 @@ function DomainFlow({ currentDomain, onClose }: { currentDomain: string; onClose
             <span className="flex min-w-0 items-center justify-between gap-2"><span className="truncate">{flow.dnsTarget}</span><button type="button" onClick={flow.copyTarget} aria-label="Copy CNAME target" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#24764F] hover:bg-[#EDF4EF]">{flow.copied ? <Check size={15}/> : <Copy size={15}/>}</button></span>
           </div>
         </div>
-        <p className="flex items-start gap-2 rounded-xl bg-[#F1F5F0] p-3 text-xs font-semibold leading-relaxed text-[#60796E]"><Clock size={15} className="mt-0.5 shrink-0"/>DNS changes can take up to 48 hours. Your booking page keeps working on its CLIQBOOK link until the domain is verified. If your provider doesn’t allow a CNAME on the root domain, use a subdomain.</p>
+        <p className="flex items-start gap-2 rounded-xl bg-[#F1F5F0] p-3 text-xs font-semibold leading-relaxed text-[#60796E]"><Clock size={15} className="mt-0.5 shrink-0"/>DNS changes can take up to 48 hours. Your booking page keeps working on its store.sync360.africa link until the domain is verified. If your provider doesn’t allow a CNAME on the root domain, use a subdomain.</p>
       </div>}
   </FormModal>
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiRequest, mockDelay } from '@/lib/api-client'
+import { ApiError, apiRequest, mockDelay } from '@/lib/api-client'
 import { useBusinessScope } from './business'
 import { asRecord, isLive, listFrom, str } from './http'
 import { queryKeys } from './query-keys'
@@ -11,7 +11,7 @@ import { sample } from './sample-data'
  *  GET    category/business/{business_id}/?type=SERVICE&limit=100
  *  POST   category/business/{business_id}/   { name, type: 'SERVICE' }
  *  PATCH  category/{id}/                     { name, type: 'SERVICE' }
- *  DELETE category/{id}/
+ *  DELETE category/{id}/                     400 { message } while items are attached; the category stays
  */
 
 const TYPE = 'SERVICE'
@@ -58,6 +58,12 @@ const updateCategory = async ({ id, name }: ServiceCategory) => {
 
 const deleteCategory = async (id: string) => {
   if (!isLive()) {
+    const attached = sample.services.filter(service => service.categoryId === id).length
+    if (attached) {
+      const message = `Cannot delete category with ${attached} item(s) attached. Move or remove them first.`
+      await mockDelay(null, 300)
+      throw new ApiError(message, 400, { message })
+    }
     sample.categories = sample.categories.filter(category => category.id !== id)
     return mockDelay(null, 300)
   }

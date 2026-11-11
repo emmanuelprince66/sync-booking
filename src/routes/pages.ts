@@ -15,6 +15,9 @@ const loaders = {
   storefront: () => import('@/features/storefront/StorefrontPage'),
   settings: () => import('@/features/settings/SettingsPage'),
   kyc: () => import('@/features/kyc/KycPage'),
+  team: () => import('@/features/team/TeamPage'),
+  branches: () => import('@/features/branches/BranchesPage'),
+  branchStaff: () => import('@/features/branches/BranchStaffPage'),
 }
 
 export const pages = {
@@ -31,6 +34,9 @@ export const pages = {
   StorefrontPage: lazy(loaders.storefront),
   SettingsPage: lazy(loaders.settings),
   KycPage: lazy(loaders.kyc),
+  TeamPage: lazy(loaders.team),
+  BranchesPage: lazy(loaders.branches),
+  BranchStaffPage: lazy(loaders.branchStaff),
 }
 
 /** Downloads the app's pages in the background, ignoring failures, so navigating never waits on code. */

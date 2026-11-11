@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { NotebookPen, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { InitialsTile } from '@/components/ui/misc'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
@@ -51,6 +51,19 @@ export function ClientInfoCard({ detail }: { detail: ClientDetailModel }) {
         <dd className="break-words text-sm font-extrabold text-[#29483B]">{item.href ? <a href={item.href} className="text-[#24764F] hover:underline">{item.value}</a> : item.value}</dd>
       </div>)}
     </dl>
+  </section>
+}
+
+/** The business's private notes on this client, edited through the client form. */
+export function ClientNotesCard({ detail }: { detail: ClientDetailModel }) {
+  return <section className="rounded-2xl border border-border bg-white p-5">
+    <div className="flex items-center justify-between gap-3">
+      <p className={cardLabel}>Notes</p>
+      <button type="button" onClick={detail.openEdit} className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#24764F] hover:text-[#173A2E]"><NotebookPen size={13}/>{detail.notes ? 'Edit' : 'Add notes'}</button>
+    </div>
+    {detail.notes
+      ? <p className="mt-3 whitespace-pre-line break-words text-sm font-semibold leading-relaxed text-[#405B50]">{detail.notes}</p>
+      : <p className="mt-3 text-xs font-semibold text-[#8A9C93]">No notes yet. Keep preferences, allergies and anything worth remembering here.</p>}
   </section>
 }
 

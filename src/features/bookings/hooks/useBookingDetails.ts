@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
 import { useBooking, useUpdateBooking } from '@/api/bookings'
-import { noEndpointSample } from '@/api/sample-data'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
 import { durationShort, relativeDayLabel } from '@/lib/dates'
 import { initials } from '@/lib/format'
@@ -23,7 +22,6 @@ export function useBookingDetails() {
   const query = useBooking(id)
   const update = useUpdateBooking()
   const [dialog, setDialog] = useState<BookingDialog>(null)
-  const [extraShown, setExtraShown] = useState(false)
 
   const booking = query.data ?? null
   const canManageSettings = !role || role === 'OWNER' || role === 'ADMIN-ATTENDANT'
@@ -77,9 +75,6 @@ export function useBookingDetails() {
       refundLabel: `Disburse refund · ${money(booking.refundableAmount)}`,
       sourceLabel: booking.source === 'storefront' ? 'Booked online' : 'Added by staff',
     },
-    /** Booking lines beyond the first have no backend field, so this stays visibly sample. */
-    extra: extraShown ? { ...noEndpointSample.extraService, price: money(noEndpointSample.extraService.amount) } : null,
-    showExtra: () => setExtraShown(true),
     canStart: canManage && canUpdateProgress && !inProgress,
     inProgress,
     canComplete: inProgress && canUpdateProgress,

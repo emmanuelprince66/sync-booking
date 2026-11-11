@@ -7,15 +7,23 @@ import { Modal, ModalFooter, ModalHeader } from '@/components/ui/Modal'
 import { SelectField } from '@/components/ui/SelectField'
 import { useCreateBusinessForm } from '../hooks/useCreateBusinessForm'
 
-type CreateBusinessModalProps = { open: boolean; onClose: () => void; onCreated: (business: Business) => void }
+type CreateBusinessModalProps = {
+  open: boolean
+  onClose: () => void
+  onCreated: (business: Business) => void
+  /** Wording, e.g. "Create a branch" on the Branches page. */
+  title?: string
+  description?: string
+  submitLabel?: string
+}
 
-export function CreateBusinessModal({ open, onClose, onCreated }: CreateBusinessModalProps) {
+export function CreateBusinessModal({ open, onClose, onCreated, title = 'Create a business', description = 'Add a new business to your account.', submitLabel = 'Create business' }: CreateBusinessModalProps) {
   const { register, errors, onSubmit, reset, isSubmitting, logo, options } = useCreateBusinessForm({ onCreated })
   const close = () => { reset(); onClose() }
 
   // Phones: full-screen sheet with a fixed header and save bar. Larger screens: centred card.
   return <Modal open={open} onClose={close} overlayClassName="bg-[#071C14]/55 p-0 backdrop-blur-sm sm:p-4" panelClassName="flex h-[100dvh] w-full flex-col bg-white shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:rounded-[24px]">
-    <ModalHeader title="Create a business" description="Add a new business to your account." onClose={close} className="shrink-0 px-5 py-4 sm:px-7 sm:py-5"/>
+    <ModalHeader title={title} description={description} onClose={close} className="shrink-0 px-5 py-4 sm:px-7 sm:py-5"/>
     <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
       <FilePicker accept={logo.accept} onFile={logo.pick} className="block">
@@ -41,7 +49,7 @@ export function CreateBusinessModal({ open, onClose, onCreated }: CreateBusiness
       </div>
       <ModalFooter className="px-5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7 [&>button]:flex-1 sm:[&>button]:flex-none">
         <Button variant="ghost" onClick={close}>Cancel</Button>
-        <Button type="submit" icon="check" loading={isSubmitting}>Create business</Button>
+        <Button type="submit" icon="check" loading={isSubmitting}>{submitLabel}</Button>
       </ModalFooter>
     </form>
   </Modal>

@@ -1,7 +1,18 @@
 import { useRef, type ClipboardEvent, type KeyboardEvent } from 'react'
 
+type OtpInputProps = {
+  value: string
+  onChange: (value: string) => void
+  length?: number
+  /** Accessible name prefix for each box, e.g. "PIN digit". */
+  label?: string
+  /** Hide the digits (transaction PINs). */
+  masked?: boolean
+  className?: string
+}
+
 /** Six-box numeric code input from the design: auto-advance, backspace to previous, paste fills all. */
-export function OtpInput({ value, onChange, length = 6 }: { value: string; onChange: (value: string) => void; length?: number }) {
+export function OtpInput({ value, onChange, length = 6, label = 'OTP digit', masked = false, className = 'mt-8 flex gap-2 sm:gap-3' }: OtpInputProps) {
   const inputs = useRef<(HTMLInputElement | null)[]>([])
   const digits = Array.from({ length }, (_, index) => value[index] ?? '')
 
@@ -24,13 +35,14 @@ export function OtpInput({ value, onChange, length = 6 }: { value: string; onCha
     inputs.current[Math.min(pasted.length, length - 1)]?.focus()
   }
 
-  return <div className="mt-8 flex gap-2 sm:gap-3">
+  return <div className={className}>
     {digits.map((digit, index) => <input
       key={index}
       ref={element => { inputs.current[index] = element }}
-      aria-label={`OTP digit ${index + 1}`}
+      aria-label={`${label} ${index + 1}`}
+      type={masked ? 'password' : 'text'}
       inputMode="numeric"
-      autoComplete={index === 0 ? 'one-time-code' : 'off'}
+      autoComplete={masked ? 'off' : index === 0 ? 'one-time-code' : 'off'}
       maxLength={1}
       value={digit}
       onChange={event => setDigit(index, event.target.value.replace(/\D/g, '').slice(-1))}

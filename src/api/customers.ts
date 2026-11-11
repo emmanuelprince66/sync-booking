@@ -10,8 +10,8 @@ import { sample } from './sample-data'
  *  GET    customer/{business_id}/?search&status&start_date&end_date&page&limit
  *         → { total, pages, results: { data: Customer[], customer_count, active_customers, new_customers, total_spend, … } }
  *  GET    customer/single/{id}/                      → { identity, customer_journey, purchase_behaviour, engagement_metrics, data: Customer }
- *  POST   customer/{business_id}/                    { name, phone, email?, gender?, date_of_birth?, address? }
- *  PATCH  customer/single/{id}/                      the same, plus birthday; null clears gender and birthday
+ *  POST   customer/{business_id}/                    { name, phone, email?, gender?, date_of_birth?, address?, notes? }
+ *  PATCH  customer/single/{id}/                      the same, plus birthday; null clears gender and birthday, "" clears notes
  *  DELETE customer/single/{id}/
  *  GET    customer/analytics/overview/{business_id}/ → { new_this_month, … }
  */
@@ -38,6 +38,8 @@ export type Customer = {
   status: string
   /** Pre-formatted by the API, e.g. "Aug 12, 2026" ('' when never seen). */
   lastVisit: string
+  /** The business's private plain-text notes about this client. */
+  notes: string
 }
 
 /** Sink's status filter: every value the list endpoint's `status` param accepts. */
@@ -62,6 +64,7 @@ export type CustomerInput = {
   gender?: string
   dateOfBirth?: string
   address?: CustomerAddress
+  notes?: string
 }
 
 const mapAddress = (value: unknown): CustomerAddress => {
@@ -85,6 +88,7 @@ const mapCustomer = (value: unknown): Customer => {
     customerCode: str(record.customer_code),
     status: str(record.status),
     lastVisit: str(record.last_visit),
+    notes: str(record.notes),
   }
 }
 
@@ -99,7 +103,7 @@ const toAddressBody = (address: CustomerAddress, isEdit: boolean) => ({
   ...(address.latitude && address.longitude ? { latitude: address.latitude, longitude: address.longitude } : {}),
 })
 
-const toMockCustomer = (input: CustomerInput) => ({ name: input.name, phone: input.phone, email: input.email ?? '', gender: input.gender ?? '', dateOfBirth: input.dateOfBirth ?? '', address: input.address ?? null })
+const toMockCustomer = (input: CustomerInput) => ({ name: input.name, phone: input.phone, email: input.email ?? '', gender: input.gender ?? '', dateOfBirth: input.dateOfBirth ?? '', address: input.address ?? null, notes: input.notes?.trim() ?? '' })
 
 const mockStatus = (customer: Customer) => (customer.bookingsCount >= 5 ? 'Active' : customer.bookingsCount > 0 ? 'At Risk' : 'Inactive')
 
@@ -177,6 +181,7 @@ const createCustomer = async (businessId: string, input: CustomerInput): Promise
     ...(input.gender ? { gender: input.gender } : {}),
     ...(input.dateOfBirth ? { date_of_birth: input.dateOfBirth } : {}),
     ...(input.address ? { address: toAddressBody(input.address, false) } : {}),
+    ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
   }
   return customerFromResponse(await apiRequest<unknown>(`customer/${businessId}/`, { method: 'POST', body }), input)
 }
@@ -194,6 +199,7 @@ const updateCustomer = async ({ id, input }: { id: string; input: CustomerInput 
     date_of_birth: input.dateOfBirth || null,
     birthday: input.dateOfBirth || null,
     ...(input.address ? { address: toAddressBody(input.address, true) } : {}),
+    notes: input.notes?.trim() ?? '',
   } })
 }
 
@@ -271,6 +277,7 @@ const mapProfile = (response: unknown, id: string): CustomerProfile | null => {
     email: str(identity.email) || row.email,
     gender: str(identity.gender) || row.gender,
     dateOfBirth: str(identity.date_of_birth) || row.dateOfBirth,
+    notes: str(identity.notes) || row.notes,
     // The nested row's sales_count/total_sales can lag; purchase_behaviour carries the real totals.
     bookingsCount: num(purchase.total_orders) || row.bookingsCount,
     totalSpent: num(purchase.total_spend) || row.totalSpent,

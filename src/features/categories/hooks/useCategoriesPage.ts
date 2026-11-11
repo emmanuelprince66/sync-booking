@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
+import { ApiError } from '@/lib/api-client'
 import { useDeleteCategory, useServiceCategories, type ServiceCategory } from '@/api/categories'
 import { useAllServices } from '@/api/services'
 import { serviceColor } from '@/features/bookings/utils'
@@ -20,7 +21,10 @@ export function useCategoriesPage() {
   const remove = useDeleteCategory()
   const [search, setSearchValue] = useState('')
   const [page, setPage] = useState(1)
-  const [dialog, setDialog] = useState<CategoryDialog>(null)
+  const [dialog, setDialogState] = useState<CategoryDialog>(null)
+  /** The backend's refusal (items still attached), shown inside the delete dialog. */
+  const [deleteError, setDeleteError] = useState('')
+  const setDialog = (next: CategoryDialog) => { setDialogState(next); setDeleteError('') }
 
   const countByCategory = useMemo(() => {
     const counts = new Map<string, number>()
@@ -65,7 +69,9 @@ export function useCategoriesPage() {
     openEdit: (category: ServiceCategory) => setDialog({ mode: 'edit', category }),
     openDelete: (category: ServiceCategory) => setDialog({ mode: 'delete', category }),
     closeDialog: () => setDialog(null),
-    deleteNote: (category: ServiceCategory) => ((countByCategory.get(category.id) ?? 0) > 0 ? ` ${serviceCountLabel(category)} use it, and will need a new category.` : ''),
+    /** Services must be moved first: the backend refuses to delete a category that still has items. */
+    deleteNote: (category: ServiceCategory) => ((countByCategory.get(category.id) ?? 0) > 0 ? ` ${serviceCountLabel(category)} still use it; move them to another category first.` : ''),
+    deleteError,
     isDeleting: remove.isPending,
     confirmDelete: async (category: ServiceCategory) => {
       try {
@@ -73,7 +79,9 @@ export function useCategoriesPage() {
         toast.success(`${category.name} deleted`)
         setDialog(null)
       } catch (error) {
-        toast.error(errorMessage(error, 'Could not delete this category.'))
+        const message = errorMessage(error, 'Could not delete this category.')
+        if (error instanceof ApiError && error.status === 400) setDeleteError(message)
+        else toast.error(message)
       }
     },
   }

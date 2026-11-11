@@ -60,9 +60,16 @@ export function SummaryRow({ label, value, labelClassName = 'text-[#7D8D85]', va
 }
 
 /** Image picker wrapper: hidden file input inside a clickable label. */
-export function FilePicker({ accept, onFile, className, children }: { accept: string; onFile: (file: File) => void; className?: string; children: ReactNode }) {
+type FilePickerProps = { accept: string; className?: string; children: ReactNode } & ({ onFile: (file: File) => void; onFiles?: never } | { onFiles: (files: File[]) => void; onFile?: never })
+
+/** Hidden file input behind a label. Pass onFiles to allow choosing several at once. */
+export function FilePicker({ accept, onFile, onFiles, className, children }: FilePickerProps) {
   return <label className={cn('cursor-pointer', className)}>
     {children}
-    <input type="file" accept={accept} className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) onFile(file); event.target.value = '' }}/>
+    <input type="file" accept={accept} multiple={Boolean(onFiles)} className="hidden" onChange={event => {
+      const files = Array.from(event.target.files ?? [])
+      if (onFiles) { if (files.length) onFiles(files) } else if (files[0]) onFile?.(files[0])
+      event.target.value = ''
+    }}/>
   </label>
 }

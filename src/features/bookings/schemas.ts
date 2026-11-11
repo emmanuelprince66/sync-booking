@@ -47,5 +47,7 @@ export const refundSchema = z.object({
 })
 export type RefundValues = z.infer<typeof refundSchema>
 
+/** UNASSIGNED_STAFF stands for "no attendee" in the picker; it is sent as staff_id: null. */
+export const UNASSIGNED_STAFF = 'UNASSIGNED'
 export const reassignSchema = z.object({ staffId: z.string().min(1, 'Choose an attendee') })
 export type ReassignValues = z.infer<typeof reassignSchema>

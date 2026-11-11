@@ -17,7 +17,13 @@ export const paths = {
   storefront: '/storefront',
   settings: '/settings',
   kyc: '/kyc',
+  team: '/team',
+  branches: '/branches',
+  branchDetail: '/branches/:branchId',
 } as const
+
+/** One branch's staff page. */
+export const branchPath = (id: string) => `/branches/${encodeURIComponent(id)}`
 
 /** One client's page. */
 export const clientPath = (id: string) => `/clients/${encodeURIComponent(id)}`

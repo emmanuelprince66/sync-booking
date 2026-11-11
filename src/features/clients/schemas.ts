@@ -13,5 +13,6 @@ export const clientSchema = z.object({
   city: z.string(),
   latitude: z.string(),
   longitude: z.string(),
+  notes: z.string().max(2000, 'Keep notes under 2,000 characters'),
 })
 export type ClientValues = z.infer<typeof clientSchema>

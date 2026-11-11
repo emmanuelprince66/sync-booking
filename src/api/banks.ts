@@ -8,7 +8,7 @@ import { sample } from './sample-data'
 
 /**
  *  GET business/bank/{business_id}/  settlement accounts (also where a transfer checkout is received)
- *  GET wallet/banks/                 bank codes for the withdrawal enquiry
+ *  GET wallet/banks/                 bank list + codes for transfers and the beneficiary enquiry
  */
 
 export type BankAccount = { id: string; bankName: string; accountNumber: string; accountName: string }
@@ -41,7 +41,12 @@ const getBankOptions = async (): Promise<BankOption[]> => {
   }).filter(bank => bank.code && bank.name)
 }
 
-export const fetchBankOptions = () => queryClient.fetchQuery({ queryKey: [...queryKeys.settlementAccounts, 'bank-options'], queryFn: getBankOptions, staleTime: 60 * 60 * 1000 })
+const bankOptionsQuery = { queryKey: [...queryKeys.settlementAccounts, 'bank-options'] as const, queryFn: getBankOptions, staleTime: 60 * 60 * 1000 }
+
+export const fetchBankOptions = () => queryClient.fetchQuery(bankOptionsQuery)
+
+/** The transfer bank list (GET wallet/banks/), fetched once an hour at most. */
+export const useBankOptions = (enabled = true) => useQuery({ ...bankOptionsQuery, enabled })
 
 /** "GTBank ···· 8812" */
 export const maskedAccount = (account: BankAccount) => `${account.bankName} ···· ${account.accountNumber.slice(-4)}`

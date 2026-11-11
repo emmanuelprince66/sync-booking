@@ -15,7 +15,7 @@ function ServicesSkeleton() {
   return <SkeletonGroup label="Loading services" className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
     {Array.from({ length: 4 }, (_, index) => <div key={index} className="flex items-start gap-4 rounded-2xl border border-border bg-white p-5">
       <Skeleton className="h-12 w-12 shrink-0 rounded-2xl"/>
-      <div className="flex flex-1 flex-col gap-2"><Skeleton className="h-4 w-40 max-w-full"/><Skeleton className="h-3 w-20"/><div className="mt-3 flex justify-between"><Skeleton className="h-5 w-20"/><Skeleton className="h-3 w-16"/></div></div>
+      <div className="flex flex-1 flex-col gap-2"><Skeleton className="h-4 w-40 max-w-full"/><Skeleton className="h-3 w-20"/><Skeleton className="mt-3 h-5 w-20"/></div>
     </div>)}
   </SkeletonGroup>
 }
@@ -55,7 +55,7 @@ export default function ServicesPage() {
                 ]}/>
               </div>
             </div>
-            <div className="mt-5 flex items-end justify-between gap-3"><p className="text-lg font-black text-[#173A2E]">{card.price}</p><p className="whitespace-nowrap text-xs font-bold text-[#84968E]">{card.bookings}</p></div>
+            <p className="mt-5 text-lg font-black text-[#173A2E]">{card.price}</p>
           </div>
         </div>
       </div>)}

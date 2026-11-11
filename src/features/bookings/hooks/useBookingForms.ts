@@ -4,12 +4,13 @@ import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useAttendants } from '@/api/attendants'
 import { errorMessage } from '@/api/auth'
+import { ApiError } from '@/lib/api-client'
 import { maskedAccount, useSettlementAccounts } from '@/api/banks'
 import { useCancelBooking, useCheckoutBooking, useDisburseRefund, useUpdateBooking, type Booking } from '@/api/bookings'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
 import { timeSelectOptions } from '@/lib/dates'
 import {
-  cancelSchema, checkoutSchema, reassignSchema, refundSchema, rescheduleSchema,
+  cancelSchema, checkoutSchema, reassignSchema, refundSchema, rescheduleSchema, UNASSIGNED_STAFF,
   type CancelValues, type CheckoutValues, type ReassignValues, type RefundValues, type RescheduleValues,
 } from '../schemas'
 
@@ -109,26 +110,30 @@ export function useRefundForm(booking: Booking, onClose: () => void) {
   }
 }
 
-/** PATCH { staff_id }. */
+/** PATCH { staff_id } exactly; "Unassigned" sends staff_id: null. A 400 (attendee busy or invalid) shows its message on the field. */
 export function useReassignForm(booking: Booking, onClose: () => void) {
   const update = useUpdateBooking()
   const attendants = useAttendants()
-  const form = useForm<ReassignValues>({ resolver: zodResolver(reassignSchema), defaultValues: { staffId: booking.staffId } })
+  const form = useForm<ReassignValues>({ resolver: zodResolver(reassignSchema), defaultValues: { staffId: booking.staffId || UNASSIGNED_STAFF } })
   const list = useMemo(() => attendants.data ?? [], [attendants.data])
   return {
     register: form.register,
     errors: form.formState.errors,
-    options: list.map(attendant => ({ value: attendant.id, label: attendant.name })),
+    options: [{ value: UNASSIGNED_STAFF, label: 'Unassigned' }, ...list.map(attendant => ({ value: attendant.id, label: attendant.name, hint: attendant.roleLabel }))],
     isLoading: attendants.isLoading,
     isSubmitting: update.isPending,
     onSubmit: form.handleSubmit(async values => {
-      const staffName = list.find(attendant => attendant.id === values.staffId)?.name ?? ''
+      const staffId = values.staffId === UNASSIGNED_STAFF ? null : values.staffId
+      if (staffId === (booking.staffId || null)) { onClose(); return }
+      const staffName = list.find(attendant => attendant.id === staffId)?.name ?? ''
       try {
-        await update.mutateAsync({ id: booking.id, patch: { staffId: values.staffId, staffName } })
-        toast.success(staffName ? `Reassigned to ${staffName}` : 'Attendee reassigned')
+        await update.mutateAsync({ id: booking.id, patch: { staffId, staffName } })
+        toast.success(!staffId ? 'Attendee removed from this booking' : staffName ? `Reassigned to ${staffName}` : 'Attendee reassigned')
         onClose()
       } catch (error) {
-        toast.error(errorMessage(error, 'Could not reassign this booking.'))
+        const message = errorMessage(error, 'Could not reassign this booking.')
+        if (error instanceof ApiError && error.status === 400) form.setError('staffId', { message })
+        else toast.error(message)
       }
     }),
   }

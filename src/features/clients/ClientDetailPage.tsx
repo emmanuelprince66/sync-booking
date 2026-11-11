@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button'
 import { BackLink, EmptyState, ErrorState } from '@/components/ui/misc'
 import { ClientBookingHistory } from './components/ClientBookingHistory'
 import { ClientFormModal } from './components/ClientFormModal'
-import { ClientDetailSkeleton, ClientHeader, ClientInfoCard, ClientJourneyCard } from './components/ClientProfile'
+import { ClientDetailSkeleton, ClientHeader, ClientInfoCard, ClientJourneyCard, ClientNotesCard } from './components/ClientProfile'
 import { DeleteClientModal } from './components/DeleteClientModal'
 import { useClientDetail } from './hooks/useClientDetail'
 
@@ -20,6 +20,7 @@ export default function ClientDetailPage() {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <ClientBookingHistory history={detail.history}/>
         <div className="flex min-w-0 flex-col gap-6">
+          <ClientNotesCard detail={detail}/>
           <ClientInfoCard detail={detail}/>
           <ClientJourneyCard detail={detail}/>
         </div>

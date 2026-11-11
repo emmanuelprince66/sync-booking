@@ -24,6 +24,7 @@ const toValues = (client: Customer | null): ClientValues => ({
   city: client?.address?.city ?? '',
   latitude: client?.address?.latitude ?? '',
   longitude: client?.address?.longitude ?? '',
+  notes: client?.notes ?? '',
 })
 
 /** Sink's customer form: same fields, rules and payload. Mounted with the dialog, so it opens with the saved values. */
@@ -132,6 +133,7 @@ export function useClientForm(client: Customer | null, onClose: () => void) {
         email: values.email,
         gender: values.gender,
         dateOfBirth: values.dateOfBirth,
+        notes: values.notes,
         address: street
           ? {
             address: street,

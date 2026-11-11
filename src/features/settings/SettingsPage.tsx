@@ -1,15 +1,13 @@
-import { CreditCard, Globe2, ShieldCheck, UserPlus } from 'lucide-react'
+import { CreditCard, Globe2, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { PageTitle } from '@/components/ui/misc'
 import { cn } from '@/lib/cn'
 import { CustomDomainTab } from './components/CustomDomainTab'
 import { KycPayoutsTab } from './components/KycPayoutsTab'
 import { PaymentOptionsTab } from './components/PaymentOptionsTab'
-import { TeamTab } from './components/TeamTab'
 
 const TABS = [
   { id: 'KYC & payouts', icon: ShieldCheck },
-  { id: 'Team & attendees', icon: UserPlus },
   { id: 'Payment options', icon: CreditCard },
   { id: 'Custom domain', icon: Globe2 },
 ] as const
@@ -29,7 +27,6 @@ export default function SettingsPage() {
       </nav>
       <div className="min-w-0">
         {tab === 'KYC & payouts' && <KycPayoutsTab/>}
-        {tab === 'Team & attendees' && <TeamTab/>}
         {tab === 'Payment options' && <PaymentOptionsTab/>}
         {tab === 'Custom domain' && <CustomDomainTab/>}
       </div>

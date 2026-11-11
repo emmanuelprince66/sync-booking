@@ -83,6 +83,7 @@ export function useClientDetail() {
         { label: 'Retention', value: `${profile.retentionScore}/100` },
       ]
       : [],
+    notes: client?.notes.trim() ?? '',
     info: client && profile
       ? [
         { label: 'Phone', value: client.phone, href: client.phone ? `tel:${client.phone}` : undefined },

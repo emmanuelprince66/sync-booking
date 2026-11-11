@@ -3,7 +3,7 @@ import type { Customer } from '@/api/customers'
 import { AddressField } from '@/components/ui/AddressField'
 import { BirthdayField } from '@/components/ui/BirthdayField'
 import { Button } from '@/components/ui/Button'
-import { Field } from '@/components/ui/Field'
+import { Field, TextareaField } from '@/components/ui/Field'
 import { FormModal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { useClientForm } from '../hooks/useClientForm'
@@ -45,6 +45,7 @@ export function ClientFormModal({ client, onClose }: { client: Customer | null; 
           ? <Field label="City" placeholder="Enter city" {...form.register('city')}/>
           : <Select label="City" placeholder={form.cityDisabled ? 'Select state first' : 'Select city'} disabled={form.cityDisabled} options={form.cityOptions} value={form.city} onValueChange={form.setCity}/>}
       </div>
+      <TextareaField label="Notes" placeholder="Preferences, allergies, anything worth remembering…" rows={3} error={form.errors.notes?.message} {...form.register('notes')}/>
       {!form.isEditing && <div className="flex items-start gap-3 rounded-xl border border-[#D6E3F7] bg-[#F1F6FD] p-3 text-[#2F518F]">
         <CircleAlert size={17} className="mt-0.5 shrink-0"/>
         <p className="text-xs font-semibold leading-5">You should ask your clients for permission before you subscribe them to your marketing emails or SMS.</p>

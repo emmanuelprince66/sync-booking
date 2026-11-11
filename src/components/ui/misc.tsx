@@ -14,13 +14,6 @@ export function PageLoader() {
   </div>
 }
 
-/** Marks a screen or card whose data is sample data because no backend endpoint exists yet. */
-export function SampleDataBadge({ className = '' }: { className?: string }) {
-  return <span title="No backend endpoint yet: this is sample data" className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#F0D78C] bg-[#FFF8E1] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[.06em] text-[#8A6A12] ${className}`}>
-    <span className="h-1.5 w-1.5 rounded-full bg-[#D9A514]" aria-hidden="true"/>Sample data
-  </span>
-}
-
 /** The heading + subtitle block on top of every screen, with its actions on the right. */
 export function PageTitle({ title, subtitle, actions, className }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; className?: string }) {
   return <div className={cn('mb-6 flex flex-wrap items-end justify-between gap-4', className)}>

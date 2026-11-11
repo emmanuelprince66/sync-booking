@@ -4,22 +4,26 @@ import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useAttendants } from '@/api/attendants'
 import { errorMessage } from '@/api/auth'
-import { isLive } from '@/api/http'
 import { useServiceCategories, type ServiceCategory } from '@/api/categories'
-import { SERVICE_DURATIONS, useCreateService, useUpdateService, type Service } from '@/api/services'
+import { SERVICE_DURATIONS, SERVICE_IMAGE_MAX_MB, SERVICE_IMAGE_TYPES, SERVICE_MAX_IMAGES, useCreateService, useUpdateService, type Service } from '@/api/services'
 import { durationLong } from '@/lib/dates'
 import { serviceSchema, type ServiceValues } from '../schemas'
 
-/** The backend stores one image per service; the design's five-image gallery only works on sample data. */
-const MAX_IMAGES = isLive() ? 1 : 5
-const MAX_IMAGE_MB = 5
+/** A gallery tile: a saved media image (mediaId) or a new file waiting to upload. */
+export type GalleryImage = { key: string; url: string; mediaId?: string; file?: File }
+
+const initialGallery = (service: Service | null): GalleryImage[] => (service?.media ?? []).map(item => ({ key: item.id, url: item.url, mediaId: item.id }))
 
 export function useServiceForm(service: Service | null, onClose: () => void) {
   const create = useCreateService()
   const update = useUpdateService()
   const categories = useServiceCategories()
   const attendants = useAttendants()
-  const [images, setImages] = useState<{ url: string; file?: File }[]>(service?.image ? [{ url: service.image }] : [])
+  const [images, setImages] = useState<GalleryImage[]>(() => initialGallery(service))
+  /** kept_media_ids is only sent once the gallery has been changed. */
+  const [galleryTouched, setGalleryTouched] = useState(false)
+  /** Older services carry a single `image` and no gallery: shown until the gallery gets images of its own. */
+  const legacyImage = service && service.media.length === 0 && service.image && images.length === 0 ? service.image : ''
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
 
   const form = useForm<ServiceValues>({
@@ -62,14 +66,28 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
     staffIds,
     setStaffIds: (ids: string[]) => form.setValue('staffIds', ids),
     images,
-    maxImages: MAX_IMAGES,
-    canAddImage: images.length < MAX_IMAGES,
-    addImage: (file: File) => {
-      if (!file.type.startsWith('image/')) { toast.error('Please choose an image file.'); return }
-      if (file.size > MAX_IMAGE_MB * 1024 * 1024) { toast.error(`Image must be ${MAX_IMAGE_MB} MB or smaller.`); return }
-      setImages(current => [...current, { url: URL.createObjectURL(file), file }].slice(0, MAX_IMAGES))
+    legacyImage,
+    maxImages: SERVICE_MAX_IMAGES,
+    canAddImage: images.length < SERVICE_MAX_IMAGES,
+    imageAccept: SERVICE_IMAGE_TYPES.join(','),
+    imageHint: `Up to ${SERVICE_MAX_IMAGES} JPG, PNG or GIF images, ${SERVICE_IMAGE_MAX_MB} MB each. The first one is the cover.`,
+    addImages: (files: File[]) => {
+      const valid = files.filter(file => {
+        if (!(SERVICE_IMAGE_TYPES as readonly string[]).includes(file.type)) { toast.error(`${file.name}: use a JPG, PNG or GIF image.`); return false }
+        if (file.size > SERVICE_IMAGE_MAX_MB * 1024 * 1024) { toast.error(`${file.name}: images must be ${SERVICE_IMAGE_MAX_MB} MB or smaller.`); return false }
+        return true
+      })
+      const room = SERVICE_MAX_IMAGES - images.length
+      if (valid.length > room) toast.error(`A service can have up to ${SERVICE_MAX_IMAGES} images.`)
+      const added = valid.slice(0, Math.max(0, room)).map((file, index) => ({ key: `new-${Date.now()}-${index}`, url: URL.createObjectURL(file), file }))
+      if (!added.length) return
+      setImages(current => [...current, ...added])
+      setGalleryTouched(true)
     },
-    removeImage: (index: number) => setImages(current => current.filter((_, position) => position !== index)),
+    removeImage: (key: string) => {
+      setImages(current => current.filter(image => image.key !== key))
+      setGalleryTouched(true)
+    },
     onSubmit: form.handleSubmit(async values => {
       const input = {
         name: values.name,
@@ -80,7 +98,8 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
         minDepositPercentage: values.minDepositPercentage ? Number(values.minDepositPercentage) : null,
         maxCapacity: Number(values.maxCapacity),
         assignedStaffIds: values.staffIds,
-        imageFile: images.find(image => image.file)?.file,
+        newImages: images.flatMap(image => (image.file ? [image.file] : [])),
+        keptMediaIds: service && galleryTouched ? images.flatMap(image => (image.mediaId ? [image.mediaId] : [])) : null,
       }
       try {
         if (service) await update.mutateAsync({ id: service.id, input })

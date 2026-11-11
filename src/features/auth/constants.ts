@@ -23,3 +23,20 @@ export const AUTH_SLIDES: { label: string; title: string; text: string; icon: Ic
 export const AUTH_TIMES = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30']
 
 export const KYC_BENEFITS = ['Higher withdrawal limits', 'Verified booking page badge', 'Priority payment settlements']
+
+/** Currency codes in sink-inventory's order (its dropdown shows the code). */
+export const SIGNUP_CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD', 'CNY', 'INR', 'RUB', 'BRL', 'ZAR', 'MXN', 'SGD', 'HKD', 'SEK', 'KES', 'GHS'] as const
+
+/** Delivery days enum (backend's 7 weekday values) with sink-inventory's short labels. */
+export const DELIVERY_DAYS = [
+  { value: 'MONDAY', short: 'Mon' },
+  { value: 'TUESDAY', short: 'Tue' },
+  { value: 'WEDNESDAY', short: 'Wed' },
+  { value: 'THURSDAY', short: 'Thu' },
+  { value: 'FRIDAY', short: 'Fri' },
+  { value: 'SATURDAY', short: 'Sat' },
+  { value: 'SUNDAY', short: 'Sun' },
+] as const
+
+/** Phone inputs default to Nigeria, like sink-inventory's PhoneInput. */
+export const DEFAULT_PHONE_COUNTRY = 'NG'

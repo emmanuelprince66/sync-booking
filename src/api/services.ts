@@ -8,8 +8,9 @@ import { sample } from './sample-data'
 /**
  * Service catalogue, same backend as sink-inventory:
  *  GET    service/business/{business_id}/?page&limit&search  → { total, pages, results | data }
- *  POST   service/business/{business_id}/                    JSON, or multipart when an image is attached
- *  PATCH  service/single_service/{id}/
+ *  POST   service/business/{business_id}/                    JSON, or multipart with repeated `images` (≤5)
+ *  PATCH  service/single_service/{id}/                       JSON, or multipart with `images` + repeated `kept_media_ids`
+ * Responses carry the gallery as `media: [{ id, file, type: "IMAGE" }]`; older rows only have `image`.
  *  DELETE service/single_service/{id}/
  * Categories live in ./categories.
  */
@@ -20,6 +21,13 @@ export const SERVICES_PAGE_SIZE = 20
 /** Enough for the booking pickers, as sink's SERVICES_PAGE_SIZE. */
 const ALL_SERVICES_LIMIT = 100
 
+/** Gallery limits the backend enforces. */
+export const SERVICE_MAX_IMAGES = 5
+export const SERVICE_IMAGE_MAX_MB = 10
+export const SERVICE_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'] as const
+
+export type ServiceMedia = { id: string; url: string }
+
 export type Service = {
   id: string
   name: string
@@ -27,7 +35,10 @@ export type Service = {
   categoryName: string
   description: string
   amount: number
+  /** Cover: the first gallery image, else the legacy single `image`. */
   image: string
+  /** Saved gallery images; empty for services that only have the legacy `image`. */
+  media: ServiceMedia[]
   duration: number
   isActive: boolean
   assignedStaffIds: string[]
@@ -35,9 +46,16 @@ export type Service = {
   maxCapacity: number
 }
 
+const mapMedia = (value: unknown): ServiceMedia[] => (Array.isArray(value) ? value : [])
+  .map(asRecord)
+  .filter(item => (str(item.type) || 'IMAGE').toUpperCase() === 'IMAGE')
+  .map(item => ({ id: str(item.id), url: str(item.file) || str(item.url) }))
+  .filter(item => item.id && item.url)
+
 export const mapService = (value: unknown): Service => {
   const record = asRecord(value)
   const category = asRecord(record.category)
+  const media = mapMedia(record.media)
   return {
     id: str(record.id),
     name: str(record.name),
@@ -45,7 +63,8 @@ export const mapService = (value: unknown): Service => {
     categoryName: str(record.category_name) || str(record.category) || str(category.name),
     description: str(record.description),
     amount: num(record.amount ?? record.selling_price),
-    image: str(record.image),
+    image: media[0]?.url || str(record.image),
+    media,
     duration: num(record.duration),
     isActive: record.is_active !== false,
     assignedStaffIds: Array.isArray(record.assigned_staff_ids) ? record.assigned_staff_ids.map(str) : [],
@@ -87,8 +106,13 @@ export type ServiceInput = {
   minDepositPercentage: number | null
   maxCapacity: number
   assignedStaffIds: string[]
-  /** The backend stores one image per service. */
-  imageFile?: File
+  /** New gallery files, sent as repeated `images`. */
+  newImages: File[]
+  /**
+   * Saved media to keep, sent as repeated `kept_media_ids`. null when the gallery
+   * wasn't touched, so the field is left out and the backend keeps everything.
+   */
+  keptMediaIds: string[] | null
 }
 
 const toBody = (input: ServiceInput) => ({
@@ -108,23 +132,40 @@ const toForm = (input: ServiceInput) => {
   for (const [key, value] of Object.entries(fields)) form.append(key, String(value))
   staff.forEach(id => form.append('assigned_staff_ids', id))
   if (deposit !== null) form.append('min_deposit_percentage', String(deposit))
-  if (input.imageFile) form.append('image', input.imageFile)
+  input.newImages.forEach(file => form.append('images', file))
+  if (input.keptMediaIds) {
+    input.keptMediaIds.forEach(id => form.append('kept_media_ids', id))
+    // Every saved image removed: send the field empty so it still reads as "keep none".
+    if (input.keptMediaIds.length === 0) form.append('kept_media_ids', '')
+  }
   return form
 }
 
-const toMockService = (input: ServiceInput, base?: Service): Service => ({
-  ...(base ?? { id: `sample-service-${Date.now()}`, isActive: true, image: '' }),
-  name: input.name.trim(),
-  categoryId: input.categoryId,
-  categoryName: sample.categories.find(category => category.id === input.categoryId)?.name ?? '',
-  description: input.description.trim(),
-  amount: input.amount,
-  duration: input.duration,
-  minDepositPercentage: input.minDepositPercentage,
-  maxCapacity: input.maxCapacity,
-  assignedStaffIds: input.assignedStaffIds,
-  image: input.imageFile ? URL.createObjectURL(input.imageFile) : base?.image ?? '',
-})
+const needsForm = (input: ServiceInput) => input.newImages.length > 0 || input.keptMediaIds !== null
+
+const toMockMedia = (input: ServiceInput, base?: Service): ServiceMedia[] => {
+  const kept = input.keptMediaIds === null ? base?.media ?? [] : (base?.media ?? []).filter(item => input.keptMediaIds?.includes(item.id))
+  const added = input.newImages.map((file, index) => ({ id: `sample-media-${Date.now()}-${index}`, url: URL.createObjectURL(file) }))
+  return [...kept, ...added].slice(0, SERVICE_MAX_IMAGES)
+}
+
+const toMockService = (input: ServiceInput, base?: Service): Service => {
+  const media = toMockMedia(input, base)
+  return {
+    ...(base ?? { id: `sample-service-${Date.now()}`, isActive: true }),
+    name: input.name.trim(),
+    categoryId: input.categoryId,
+    categoryName: sample.categories.find(category => category.id === input.categoryId)?.name ?? '',
+    description: input.description.trim(),
+    amount: input.amount,
+    duration: input.duration,
+    minDepositPercentage: input.minDepositPercentage,
+    maxCapacity: input.maxCapacity,
+    assignedStaffIds: input.assignedStaffIds,
+    media,
+    image: media[0]?.url ?? '',
+  }
+}
 
 const createService = async (businessId: string, input: ServiceInput) => {
   if (!isLive()) {
@@ -132,10 +173,15 @@ const createService = async (businessId: string, input: ServiceInput) => {
     return mockDelay(null, 500)
   }
   const url = `service/business/${businessId}/`
-  if (input.imageFile) return apiFormRequest<unknown>(url, 'POST', toForm(input))
+  // New services start switched on, so clients can book them straight away.
+  if (input.newImages.length) {
+    const form = toForm(input)
+    form.append('is_active', 'true')
+    return apiFormRequest<unknown>(url, 'POST', form)
+  }
   // On create a blank deposit is left out, so the backend applies the business default.
   const { min_deposit_percentage: deposit, ...body } = toBody(input)
-  return apiRequest<unknown>(url, { method: 'POST', body: deposit === null ? body : { ...body, min_deposit_percentage: deposit } })
+  return apiRequest<unknown>(url, { method: 'POST', body: { ...body, is_active: true, ...(deposit === null ? {} : { min_deposit_percentage: deposit }) } })
 }
 
 const updateService = async ({ id, input }: { id: string; input: ServiceInput }) => {
@@ -144,7 +190,7 @@ const updateService = async ({ id, input }: { id: string; input: ServiceInput })
     return mockDelay(null, 500)
   }
   const url = `service/single_service/${id}/`
-  if (input.imageFile) return apiFormRequest<unknown>(url, 'PATCH', toForm(input))
+  if (needsForm(input)) return apiFormRequest<unknown>(url, 'PATCH', toForm(input))
   return apiRequest<unknown>(url, { method: 'PATCH', body: toBody(input) })
 }
 
