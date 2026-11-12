@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import type { WeekDay } from '@/api/storefront'
 import { PillTabs } from '@/components/ui/misc'
 import { cn } from '@/lib/cn'
-import { paths } from '@/routes/paths'
+import { servicesPath } from '@/routes/paths'
 import type { StoreDaysModel } from '../hooks/useStoreDays'
 import { CardActions, SettingsCard } from './SettingsCard'
 
@@ -25,7 +25,7 @@ export function StoreDaysCard({ days }: { days: StoreDaysModel }) {
           <PillTabs value={days.preset} onChange={days.setPreset} options={days.presets} className="self-start"/>
         </div>
         <DayChips label="Opening days" days={days.days} selected={days.workingDays} onToggle={days.toggleWorkingDay}/>
-        <p className="mt-2 text-[11px] font-semibold text-[#8A9C93]">Bookable hours and breaks are set in <Link to={paths.availability} className="font-extrabold text-[#24764F] hover:underline">Availability</Link>.</p>
+        <p className="mt-2 text-[11px] font-semibold text-[#8A9C93]">Bookable hours and breaks are set in <Link to={servicesPath('availability')} className="font-extrabold text-[#24764F] hover:underline">Availability</Link>.</p>
       </div>
       <div>
         <p className="text-sm font-extrabold text-[#29483B]">Home service days</p>

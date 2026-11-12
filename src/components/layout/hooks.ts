@@ -2,17 +2,20 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { roleLabel } from '@/api/attendants'
+import { useBusinesses, type Business } from '@/api/business'
 import { useDefaultBookings } from '@/api/bookings'
 import { useKycStatus } from '@/api/kyc'
 import { useMarkAllNotificationsRead, useNotifications, useUnreadNotifications } from '@/api/notifications'
 import { getBookingUrl, useStorefrontProfile } from '@/api/storefront'
 import { formatActivityDate } from '@/api/http'
+import { useActivateBusiness } from '@/features/business/hooks/useActivateBusiness'
 import { useMenu } from '@/hooks/useMenu'
 import { todayIso } from '@/lib/dates'
 import { formatLongDate, initials } from '@/lib/format'
-import { paths } from '@/routes/paths'
+import { paths, setupPath } from '@/routes/paths'
 import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 import { useBusinessDataStore } from '@/stores/business-data-store'
+import { useBusinessStore } from '@/stores/business-store'
 import { useUiStore } from '@/stores/ui-store'
 
 const SUPPORT_EMAIL = 'support@sync360.africa'
@@ -43,18 +46,42 @@ function useAccountActions(closeMenu: () => void) {
   }
 }
 
-/** Data for the business block in the sidebar and its menu. */
-export function useAccountMenu() {
+export type BranchOption = { business: Business; name: string; initials: string; isCurrent: boolean }
+
+/**
+ * The business block in the sidebar and its menu: the owner's branches (the same
+ * business list as Setup → Branches) to switch between, Manage branches, Switch
+ * business and Log out. `onNavigate` closes the mobile drawer after any action.
+ */
+export function useAccountMenu(onNavigate?: () => void) {
+  const navigate = useNavigate()
   const business = useBusinessDataStore(state => state.businessData)
+  const currentId = useBusinessStore(state => state.businessId)
+  const branches = useBusinesses()
+  const activate = useActivateBusiness()
   const menu = useMenu()
-  const actions = useAccountActions(menu.close)
+  const close = () => { menu.close(); onNavigate?.() }
+  const actions = useAccountActions(close)
   const businessName = business?.name || 'Your business'
+  const options: BranchOption[] = [...(branches.data ?? [])]
+    .sort((a, b) => Number(b.id === currentId) - Number(a.id === currentId))
+    .map(item => ({ business: item, name: item.name || 'Untitled business', initials: initials(item.name || 'B'), isCurrent: item.id === currentId }))
   return {
     ...menu,
     ...actions,
     businessName,
     businessLogo: business?.logo ?? '',
     businessInitials: initials(businessName),
+    branches: options,
+    branchesLoading: branches.isLoading,
+    /** Same as Setup → Branches' Switch: clears the old branch's data, then opens the overview. */
+    switchTo: (option: BranchOption) => {
+      close()
+      if (option.isCurrent) return
+      activate(option.business)
+      navigate(paths.overview)
+    },
+    manageBranches: () => { close(); navigate(setupPath('branches')) },
   }
 }
 

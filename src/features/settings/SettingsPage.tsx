@@ -1,35 +1,43 @@
-import { CreditCard, Globe2, ShieldCheck } from 'lucide-react'
-import { useState } from 'react'
+import { Building2, CreditCard, Globe2, ShieldCheck, Store, UserCog } from 'lucide-react'
 import { PageTitle } from '@/components/ui/misc'
+import { BranchesPanel } from '@/features/branches/BranchesPanel'
+import { BranchStaffView } from '@/features/branches/BranchStaffView'
+import { StorefrontPanel } from '@/features/storefront/StorefrontPanel'
+import { TeamPanel } from '@/features/team/TeamPanel'
 import { cn } from '@/lib/cn'
+import type { SetupTab } from '@/routes/paths'
 import { CustomDomainTab } from './components/CustomDomainTab'
 import { KycPayoutsTab } from './components/KycPayoutsTab'
 import { PaymentOptionsTab } from './components/PaymentOptionsTab'
+import { useSetupTabs } from './hooks/useSetupTabs'
 
-const TABS = [
-  { id: 'KYC & payouts', icon: ShieldCheck },
-  { id: 'Payment options', icon: CreditCard },
-  { id: 'Custom domain', icon: Globe2 },
-] as const
+const TABS: { id: SetupTab; label: string; icon: typeof ShieldCheck }[] = [
+  { id: 'kyc', label: 'KYC & payouts', icon: ShieldCheck },
+  { id: 'payments', label: 'Payment options', icon: CreditCard },
+  { id: 'domain', label: 'Custom domain', icon: Globe2 },
+  { id: 'storefront', label: 'Storefront', icon: Store },
+  { id: 'team', label: 'Team', icon: UserCog },
+  { id: 'branches', label: 'Branches', icon: Building2 },
+]
 
-type SetupTab = typeof TABS[number]['id']
-
+/** /settings ("Setup"): payments, trust, the storefront, the team and branches, one tab each (?tab=…). */
 export default function SettingsPage() {
-  const [tab, setTab] = useState<SetupTab>('KYC & payouts')
+  const { tab, branchId, setTab } = useSetupTabs()
   return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
-    <PageTitle title="Business setup" subtitle="People, payments and trust—all in one place."/>
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
-      <nav className="no-scrollbar flex h-fit gap-1 overflow-x-auto rounded-2xl border border-border bg-white p-2 lg:flex-col lg:gap-0.5">
-        {TABS.map(item => {
-          const TabIcon = item.icon
-          return <button key={item.id} type="button" onClick={() => setTab(item.id)} className={cn('flex shrink-0 items-center gap-3 whitespace-nowrap rounded-xl px-3 py-3 text-left text-sm font-extrabold lg:w-full', tab === item.id ? 'bg-[#173A2E] text-white' : 'text-[#657C71] hover:bg-[#F2F6F1]')}><TabIcon size={17}/>{item.id}</button>
-        })}
-      </nav>
-      <div className="min-w-0">
-        {tab === 'KYC & payouts' && <KycPayoutsTab/>}
-        {tab === 'Payment options' && <PaymentOptionsTab/>}
-        {tab === 'Custom domain' && <CustomDomainTab/>}
-      </div>
+    <PageTitle title="Setup" subtitle="Your storefront, people, branches and payments—all in one place."/>
+    <nav aria-label="Setup sections" role="tablist" className="no-scrollbar mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-border bg-white p-2">
+      {TABS.map(item => {
+        const TabIcon = item.icon
+        return <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)} className={cn('flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-sm font-extrabold', tab === item.id ? 'bg-[#173A2E] text-white' : 'text-[#657C71] hover:bg-[#F2F6F1]')}><TabIcon size={16}/>{item.label}</button>
+      })}
+    </nav>
+    <div className="min-w-0">
+      {tab === 'kyc' && <KycPayoutsTab/>}
+      {tab === 'payments' && <PaymentOptionsTab/>}
+      {tab === 'domain' && <CustomDomainTab/>}
+      {tab === 'storefront' && <StorefrontPanel/>}
+      {tab === 'team' && <TeamPanel/>}
+      {tab === 'branches' && (branchId ? <BranchStaffView key={branchId} branchId={branchId}/> : <BranchesPanel/>)}
     </div>
   </div>
 }

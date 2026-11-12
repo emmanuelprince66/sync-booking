@@ -23,8 +23,18 @@ export const paths = {
   branchDetail: '/branches/:branchId',
 } as const
 
-/** One branch's staff page. */
-export const branchPath = (id: string) => `/branches/${encodeURIComponent(id)}`
+/** Tabs of the Setup page (/settings?tab=…). Team, Branches and Storefront live here, not in the sidebar. */
+export const SETUP_TABS = ['kyc', 'payments', 'domain', 'storefront', 'team', 'branches'] as const
+export type SetupTab = typeof SETUP_TABS[number]
+export const setupPath = (tab: SetupTab) => `${paths.settings}?tab=${tab}`
+
+/** One branch's staff: a sub-view of Setup → Branches. */
+export const branchPath = (id: string) => `${paths.settings}?tab=branches&branch=${encodeURIComponent(id)}`
+
+/** Tabs of the Services page (/services?tab=…). Availability lives here, not in the sidebar. */
+export const SERVICES_TABS = ['services', 'availability', 'history'] as const
+export type ServicesTab = typeof SERVICES_TABS[number]
+export const servicesPath = (tab: ServicesTab) => (tab === 'services' ? paths.services : `${paths.services}?tab=${tab}`)
 
 /** One client's page. */
 export const clientPath = (id: string) => `/clients/${encodeURIComponent(id)}`

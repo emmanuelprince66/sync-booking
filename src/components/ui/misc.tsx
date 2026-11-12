@@ -22,6 +22,14 @@ export function PageTitle({ title, subtitle, actions, className }: { title: Reac
   </div>
 }
 
+/** A tab's or section's heading inside a page (the page keeps the one PageTitle). */
+export function SectionTitle({ title, subtitle, actions, className }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; className?: string }) {
+  return <div className={cn('mb-4 flex flex-wrap items-end justify-between gap-3', className)}>
+    <div className="min-w-0"><h2 className="text-lg font-black tracking-tight text-[#173A2E]">{title}</h2>{subtitle && <p className="mt-0.5 text-xs font-semibold text-[#71867C]">{subtitle}</p>}</div>
+    {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+  </div>
+}
+
 /** Nothing to show yet. */
 export function EmptyState({ icon, title, text, action, className }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode; className?: string }) {
   return <div className={cn('px-6 py-12 text-center', className)}>

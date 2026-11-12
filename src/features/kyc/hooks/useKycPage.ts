@@ -47,7 +47,7 @@ export function useKycPage() {
         : 'Complete a tier to raise your daily limit. Each tier builds on the one before it, and you can stop at any point.'
 
   return {
-    /** Leave the page: back where the user came from, or to Business setup. */
+    /** Leave the page: back where the user came from, or to Setup. */
     exit: () => (window.history.length > 1 ? navigate(-1) : navigate(paths.settings)),
     kyc,
     loading: verification.isLoading && !chosen,

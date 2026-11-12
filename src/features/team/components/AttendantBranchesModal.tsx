@@ -17,7 +17,7 @@ export function AttendantBranchesModal({ attendant, onClose }: { attendant: Atte
     </>}>
     {flow.isError && <ErrorState title="We couldn’t load your branches" onRetry={flow.retry}/>}
     {flow.isLoading && <ListSkeleton rows={3} rowClassName="flex items-center gap-3 rounded-xl border border-border p-3"/>}
-    {!flow.isLoading && !flow.isError && flow.branches.length === 0 && <EmptyState icon={<Building2 size={20}/>} title="No branches yet" text="Create a branch from the Branches page first."/>}
+    {!flow.isLoading && !flow.isError && flow.branches.length === 0 && <EmptyState icon={<Building2 size={20}/>} title="No branches yet" text="Create a branch in Setup → Branches first."/>}
     <div className="flex flex-col gap-2">
       {flow.branches.map(branch => <button key={branch.id} type="button" role="checkbox" aria-checked={branch.selected} onClick={() => flow.toggle(branch.id)} className={cn('flex w-full items-center gap-3 rounded-xl border p-3 text-left transition', branch.selected ? 'border-[#329661] bg-[#F3F9F4]' : 'border-border bg-white hover:border-[#9DB1A9]')}>
         <span className={cn('flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border', branch.selected ? 'border-[#173A2E] bg-[#173A2E] text-white' : 'border-[#CAD6CF] bg-white')}>{branch.selected && <Check size={12} strokeWidth={3}/>}</span>

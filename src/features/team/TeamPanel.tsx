@@ -1,7 +1,7 @@
 import { UserPlus, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { SearchInput } from '@/components/ui/common'
-import { EmptyState, ErrorState, PageTitle } from '@/components/ui/misc'
+import { EmptyState, ErrorState, SectionTitle } from '@/components/ui/misc'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
@@ -11,12 +11,12 @@ import { StaffFormModal } from './components/StaffFormModal'
 import { StaffTable } from './components/StaffTable'
 import { useTeamPage } from './hooks/useTeamPage'
 
-/** /team: staff accounts, their roles, permissions and branches. Bookings and services are assigned to these people. */
-export default function TeamPage() {
+/** Setup → Team: staff accounts, their roles, permissions and branches. Bookings and services are assigned to these people. */
+export function TeamPanel() {
   const page = useTeamPage()
   const addButton = page.canInvite && <Button onClick={page.openAdd}><UserPlus size={16}/> Add staff member</Button>
-  return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
-    <PageTitle title="Team" subtitle="The people who take appointments, and what each can do." actions={addButton}/>
+  return <div className="min-w-0">
+    <SectionTitle title="Team" subtitle="The people who take appointments, and what each can do." actions={addButton}/>
 
     <div className="rounded-2xl border border-border bg-white">
       <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center">

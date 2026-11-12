@@ -1,17 +1,17 @@
 import { Building2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { EmptyState, ErrorState, PageTitle } from '@/components/ui/misc'
+import { EmptyState, ErrorState, SectionTitle } from '@/components/ui/misc'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { CreateBusinessModal } from '@/features/business/components/CreateBusinessModal'
 import { BranchCard } from './components/BranchCard'
 import { useBranchesPage } from './hooks/useBranchesPage'
 
-/** /branches: the owner's businesses, as sink-inventory treats branches. Create, switch into, and staff each one. */
-export default function BranchesPage() {
+/** Setup → Branches: the owner's businesses, as sink-inventory treats branches. Create, switch into, and staff each one. */
+export function BranchesPanel() {
   const page = useBranchesPage()
   const createButton = page.canCreate && <Button onClick={page.createModal.open}><Plus size={17}/> Create branch</Button>
-  return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
-    <PageTitle title="Branches" subtitle="Every location you run, and who works at each." actions={createButton}/>
+  return <div className="min-w-0">
+    <SectionTitle title="Branches" subtitle="Every location you run, and who works at each." actions={createButton}/>
 
     {page.isError && <ErrorState title="We couldn’t load your branches" onRetry={page.retry}/>}
     {page.isLoading && <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 3 }, (_, index) => <CardSkeleton key={index} lines={4}/>)}</div>}

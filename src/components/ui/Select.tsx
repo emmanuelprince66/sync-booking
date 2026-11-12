@@ -2,6 +2,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { Check, ChevronDown, Plus, Search } from 'lucide-react'
 import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type Ref } from 'react'
 import { cn } from '@/lib/cn'
+import { isCoarsePointer } from '@/lib/device'
 import { fieldLabelClass } from './Field'
 
 export type SelectOption = { value: string; label: string; hint?: string; disabled?: boolean }
@@ -101,7 +102,13 @@ export function Select({ label, options, value, defaultValue = '', placeholder =
         </button>
       </Popover.Trigger>
       {/* Not portalled, so it scrolls and stacks correctly inside dialogs. */}
-      <Popover.Content align="start" sideOffset={6} collisionPadding={12} onOpenAutoFocus={event => { if (showSearch) listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }); else { event.preventDefault(); listRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"], button:not(:disabled)')?.focus() } }} onKeyDown={moveFocus}
+      <Popover.Content align="start" sideOffset={6} collisionPadding={12} onOpenAutoFocus={event => {
+        // Phones: focusing the search box pops the keyboard over the list, so focus the chosen option instead.
+        if (showSearch && !isCoarsePointer()) { listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }); return }
+        event.preventDefault()
+        listRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"], button:not(:disabled)')?.focus({ preventScroll: true })
+        listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
+      }} onKeyDown={moveFocus}
         className="z-[70] w-[var(--radix-popover-trigger-width)] min-w-[180px] overflow-hidden rounded-xl border border-[#E2EAE5] bg-white shadow-[0_18px_44px_rgba(9,38,28,.16)]">
         {showSearch && <div className="flex items-center gap-2 border-b border-[#EDF1EF] px-3 py-2.5 text-[#7C8D85]"><Search size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search…" aria-label="Search options" className="w-full min-w-0 bg-transparent text-xs font-semibold text-[#09261C] outline-none placeholder:font-medium placeholder:text-[#9AABA3]"/></div>}
         <div ref={listRef} role="listbox" className="flex max-h-60 flex-col gap-0.5 overflow-y-auto p-1.5">

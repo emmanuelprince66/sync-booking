@@ -5,8 +5,9 @@ import { AppLoader } from '@/components/ui/AppLoader'
 import { GuestOnly, RequireAuth, RequireBusiness } from './guards'
 import { pages } from './pages'
 import { paths } from './paths'
+import { AvailabilityRedirect, BranchDetailRedirect, BranchesRedirect, StorefrontRedirect, TeamRedirect } from './redirects'
 
-const { AuthPage, SelectBusinessPage, OverviewPage, CalendarPage, BookingsPage, WalletPage, ClientsPage, ClientDetailPage, ServicesPage, CategoriesPage, AvailabilityPage, StorefrontPage, SettingsPage, KycPage, TeamPage, BranchesPage, BranchStaffPage } = pages
+const { AuthPage, SelectBusinessPage, OverviewPage, CalendarPage, BookingsPage, WalletPage, ClientsPage, ClientDetailPage, ServicesPage, CategoriesPage, SettingsPage, KycPage } = pages
 
 export const router = createBrowserRouter([
   {
@@ -36,13 +37,14 @@ export const router = createBrowserRouter([
           { path: paths.clientDetail, element: <ClientDetailPage/> },
           { path: paths.services, element: <ServicesPage/> },
           { path: paths.serviceCategories, element: <CategoriesPage/> },
-          { path: paths.availability, element: <AvailabilityPage/> },
-          { path: paths.storefront, element: <StorefrontPage/> },
+          // Availability is a tab of Services now; Team, Branches and Storefront are tabs of Setup.
+          { path: paths.availability, element: <AvailabilityRedirect/> },
+          { path: paths.storefront, element: <StorefrontRedirect/> },
           { path: paths.settings, element: <SettingsPage/> },
           { path: paths.kyc, element: <KycPage/> },
-          { path: paths.team, element: <TeamPage/> },
-          { path: paths.branches, element: <BranchesPage/> },
-          { path: paths.branchDetail, element: <BranchStaffPage/> },
+          { path: paths.team, element: <TeamRedirect/> },
+          { path: paths.branches, element: <BranchesRedirect/> },
+          { path: paths.branchDetail, element: <BranchDetailRedirect/> },
         ],
       },
         ],

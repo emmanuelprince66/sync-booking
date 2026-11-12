@@ -5,7 +5,7 @@ import { Logo } from '@/components/ui/Logo'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { paths } from '@/routes/paths'
+import { paths, setupPath } from '@/routes/paths'
 import { AccountMenu } from './AccountMenu'
 import { useMobileSidebar, useSidebar } from './hooks'
 import { navItems } from './nav'
@@ -48,10 +48,10 @@ function SidebarContent({ onNavigate, onClose }: { onNavigate?: () => void; onCl
           <p className="break-words text-[11px] leading-relaxed text-white/55">{sidebar.hasBookingPage ? `${sidebar.bookingHost} is ready to receive bookings.` : 'Set up your storefront to get a public booking link.'}</p>
         </>
         : <div className="flex flex-col gap-2"><Skeleton className="h-4 w-28 bg-white/10"/><Skeleton className="h-8 w-full bg-white/10"/></div>}
-      <NavLink to={paths.storefront} onClick={onNavigate} className="mt-3 flex items-center gap-1.5 text-xs font-extrabold text-white">View storefront <ArrowRight size={13}/></NavLink>
+      <NavLink to={setupPath('storefront')} onClick={onNavigate} className="mt-3 flex items-center gap-1.5 text-xs font-extrabold text-white">View storefront <ArrowRight size={13}/></NavLink>
     </div>
 
-    <AccountMenu/>
+    <AccountMenu onNavigate={onNavigate}/>
   </>
 }
 

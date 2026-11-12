@@ -20,12 +20,16 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
   const categories = useServiceCategories()
   const attendants = useAttendants()
   const [images, setImages] = useState<GalleryImage[]>(() => initialGallery(service))
-  /** kept_media_ids is only sent once the gallery has been changed. */
-  const [galleryTouched, setGalleryTouched] = useState(false)
-  /** Older services carry a single `image` and no gallery: shown until the gallery gets images of its own. */
+  /**
+   * kept_media_ids is only sent once a saved image (gallery or legacy) has been removed. Adding
+   * pictures alone leaves it out, so the backend keeps everything, the legacy image included.
+   */
+  const [savedRemoved, setSavedRemoved] = useState(false)
+  /** Older services carry a single legacy image (an id-less media entry) and no gallery: shown as "Current" until removed. */
   // Removing it sends kept_media_ids="", which the backend also uses to clear the old `image`.
   const [legacyRemoved, setLegacyRemoved] = useState(false)
-  const legacyImage = service && !legacyRemoved && service.media.length === 0 && service.image && images.length === 0 ? service.image : ''
+  const legacyImage = service && !legacyRemoved && service.media.length === 0 && service.image ? service.image : ''
+  const usedSlots = images.length + (legacyImage ? 1 : 0)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
 
   const form = useForm<ServiceValues>({
@@ -69,8 +73,9 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
     setStaffIds: (ids: string[]) => form.setValue('staffIds', ids),
     images,
     legacyImage,
+    imageCount: usedSlots,
     maxImages: SERVICE_MAX_IMAGES,
-    canAddImage: images.length < SERVICE_MAX_IMAGES,
+    canAddImage: usedSlots < SERVICE_MAX_IMAGES,
     imageAccept: SERVICE_IMAGE_TYPES.join(','),
     imageHint: `Up to ${SERVICE_MAX_IMAGES} JPG, PNG or GIF images, ${SERVICE_IMAGE_MAX_MB} MB each. The first one is the cover.`,
     addImages: (files: File[]) => {
@@ -79,20 +84,19 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
         if (file.size > SERVICE_IMAGE_MAX_MB * 1024 * 1024) { toast.error(`${file.name}: images must be ${SERVICE_IMAGE_MAX_MB} MB or smaller.`); return false }
         return true
       })
-      const room = SERVICE_MAX_IMAGES - images.length
+      const room = SERVICE_MAX_IMAGES - usedSlots
       if (valid.length > room) toast.error(`A service can have up to ${SERVICE_MAX_IMAGES} images.`)
       const added = valid.slice(0, Math.max(0, room)).map((file, index) => ({ key: `new-${Date.now()}-${index}`, url: URL.createObjectURL(file), file }))
       if (!added.length) return
       setImages(current => [...current, ...added])
-      setGalleryTouched(true)
     },
     removeLegacyImage: () => {
       setLegacyRemoved(true)
-      setGalleryTouched(true)
+      setSavedRemoved(true)
     },
     removeImage: (key: string) => {
+      if (images.some(image => image.key === key && image.mediaId)) setSavedRemoved(true)
       setImages(current => current.filter(image => image.key !== key))
-      setGalleryTouched(true)
     },
     onSubmit: form.handleSubmit(async values => {
       const input = {
@@ -105,7 +109,7 @@ export function useServiceForm(service: Service | null, onClose: () => void) {
         maxCapacity: Number(values.maxCapacity),
         assignedStaffIds: values.staffIds,
         newImages: images.flatMap(image => (image.file ? [image.file] : [])),
-        keptMediaIds: service && galleryTouched ? images.flatMap(image => (image.mediaId ? [image.mediaId] : [])) : null,
+        keptMediaIds: service && savedRemoved ? images.flatMap(image => (image.mediaId ? [image.mediaId] : [])) : null,
       }
       try {
         if (service) await update.mutateAsync({ id: service.id, input })

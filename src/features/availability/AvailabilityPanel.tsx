@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { Field, TextareaField } from '@/components/ui/Field'
 import { FormDateField } from '@/components/ui/FormDateField'
-import { ErrorState, PageTitle } from '@/components/ui/misc'
+import { ErrorState } from '@/components/ui/misc'
 import { FormModal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { CardSkeleton, Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
@@ -79,11 +79,14 @@ function BlockTimeModal({ onClose }: { onClose: () => void }) {
   </FormModal>
 }
 
-/** Availability: weekly hours, breaks, booking rules and blocked time. */
-export default function AvailabilityPage() {
+/** Services → Availability: weekly hours, breaks, booking rules and blocked time. The Services page holds the title. */
+export function AvailabilityPanel() {
   const timeOff = useTimeOff()
-  return <div className="mx-auto max-w-[1050px] p-5 md:p-8">
-    <PageTitle title="Availability" subtitle="Set your rhythm. We will handle the slots." actions={<Button variant="secondary" onClick={timeOff.openModal}><TimerOff size={17}/> Block time</Button>}/>
+  return <div className="min-w-0">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs font-semibold text-[#71867C]">Set your rhythm. We will handle the slots.</p>
+      <Button variant="secondary" onClick={timeOff.openModal}><TimerOff size={17}/> Block time</Button>
+    </div>
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_310px]">
       <WeeklyHoursCard/>
       <div className="flex min-w-0 flex-col gap-4">

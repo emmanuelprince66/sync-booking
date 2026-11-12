@@ -2,18 +2,24 @@ import { z } from 'zod'
 
 const optionalEmail = z.string().trim().email('Enter a valid email address').or(z.literal(''))
 
+const bookingLineSchema = z.object({
+  serviceId: z.string().min(1, 'Select a service'),
+  staffId: z.string().min(1, 'No eligible attendant for this service'),
+  time: z.string(),
+})
+export type BookingLineValues = z.infer<typeof bookingLineSchema>
+
 export const newBookingSchema = z.object({
   customerId: z.string(),
   clientName: z.string().trim().min(1, 'Choose a client or type a new name'),
   clientPhone: z.string().trim(),
   clientEmail: optionalEmail,
-  serviceId: z.string().min(1, 'Select a service'),
   date: z.string().min(1, 'Choose a date'),
-  staffId: z.string().min(1, 'No eligible attendee for this service'),
+  /** One booking per line: the backend takes a single service per booking. */
+  lines: z.array(bookingLineSchema).min(1, 'Add at least one service'),
   paid: z.boolean(),
   method: z.enum(['CASH', 'CARD', 'TRANSFER']),
   bankId: z.string(),
-  time: z.string(),
   notes: z.string(),
 }).superRefine((values, context) => {
   if (!values.customerId && values.clientPhone.length < 7) context.addIssue({ code: 'custom', path: ['clientPhone'], message: 'Enter the client’s phone number' })

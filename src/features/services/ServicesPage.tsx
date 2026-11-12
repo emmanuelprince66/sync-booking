@@ -2,14 +2,17 @@ import { Clock3, Pencil, Plus, Power, Sparkles, Tags, Trash2 } from 'lucide-reac
 import { Link } from 'react-router'
 import { ActionMenu } from '@/components/ui/ActionMenu'
 import { Button } from '@/components/ui/Button'
-import { EmptyState, ErrorState, InitialsTile, PageTitle } from '@/components/ui/misc'
+import { EmptyState, ErrorState, InitialsTile, PageTitle, PillTabs } from '@/components/ui/misc'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { paths } from '@/routes/paths'
+import { AvailabilityPanel } from '@/features/availability/AvailabilityPanel'
 import { ServiceFormModal } from './components/ServiceFormModal'
+import { ServiceHistory } from './components/ServiceHistory'
 import { useServicesPage } from './hooks/useServicesPage'
+import { SERVICES_TAB_OPTIONS, useServicesTabs } from './hooks/useServicesTabs'
 
 function ServicesSkeleton() {
   return <SkeletonGroup label="Loading services" className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
@@ -20,13 +23,14 @@ function ServicesSkeleton() {
   </SkeletonGroup>
 }
 
-export default function ServicesPage() {
+/** Services → Services: the catalogue cards, add / edit / delete. */
+function ServicesCatalog() {
   const page = useServicesPage()
-  return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
-    <PageTitle title="Services" subtitle="Define what you offer and how long it takes." actions={<>
+  return <div className="min-w-0">
+    <div className="mb-4 flex flex-wrap justify-end gap-2">
       <Link to={paths.serviceCategories} className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-extrabold text-[#3E584E] transition hover:border-[#9DB1A9] hover:text-[#173A2E]"><Tags size={16}/> Manage categories</Link>
       <Button onClick={page.openAdd}><Plus size={17}/> Add service</Button>
-    </>}/>
+    </div>
     <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-[#D8FF72] p-5 md:p-6">
       {page.isLoading
         ? <div className="flex flex-1 flex-col gap-2"><Skeleton className="h-4 w-48 max-w-full bg-white/60"/><Skeleton className="h-3 w-64 max-w-full bg-white/60"/></div>
@@ -66,5 +70,17 @@ export default function ServicesPage() {
     {page.dialog?.mode === 'delete' && <ConfirmModal onClose={page.closeDialog} eyebrow="Service catalogue" title="Delete service" confirmLabel="Delete service" cancelLabel="Keep service" isConfirming={page.isDeleting} onConfirm={() => void (page.dialog?.mode === 'delete' && page.confirmDelete(page.dialog.service))}>
       Delete <strong className="font-black text-[#173A2E]">{page.dialog.service.name}</strong>? Clients won’t be able to book it any more.
     </ConfirmModal>}
+  </div>
+}
+
+/** /services: the catalogue, availability and service history, one tab each (?tab=…). */
+export default function ServicesPage() {
+  const { tab, setTab } = useServicesTabs()
+  return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
+    <PageTitle title="Services" subtitle="What you offer, when you’re open, and what has been booked."/>
+    <PillTabs value={tab} onChange={setTab} options={SERVICES_TAB_OPTIONS} className="mb-5 w-fit"/>
+    {tab === 'services' && <ServicesCatalog/>}
+    {tab === 'availability' && <AvailabilityPanel/>}
+    {tab === 'history' && <ServiceHistory/>}
   </div>
 }

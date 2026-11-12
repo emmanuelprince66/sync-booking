@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMemo, useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useAttendants } from '@/api/attendants'
 import { errorMessage } from '@/api/auth'
@@ -14,12 +14,14 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
 import { durationLong, fromIsoDate, minutesToTime, timeToMinutes, todayIso, weekdayDayMonth } from '@/lib/dates'
 import { useUiStore } from '@/stores/ui-store'
-import { newBookingSchema, type NewBookingValues } from '../schemas'
-import { buildSlots, dayOfWeekOf, eligibleStaff } from '../utils'
+import { newBookingSchema, type BookingLineValues, type NewBookingValues } from '../schemas'
+import { buildSlots, dayOfWeekOf, eligibleStaff, minutesPassedOn, overlaps } from '../utils'
 
 const CLIENT_RESULTS = 6
 /** Sink only searches customers from three characters. */
 const MIN_SEARCH = 3
+const EMPTY_LINE: BookingLineValues = { serviceId: '', staffId: '', time: '' }
+const joinNames = (names: string[]) => names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 
 /** The two-step new booking dialog. Mounted only while open, so it always starts fresh. */
 export function useNewBookingModal() {
@@ -33,7 +35,7 @@ export function useNewBookingModal() {
 
   const form = useForm<NewBookingValues>({
     resolver: zodResolver(newBookingSchema),
-    defaultValues: { customerId: '', clientName: '', clientPhone: '', clientEmail: '', serviceId: '', date: todayIso(), staffId: '', paid: false, method: 'CASH', bankId: '', time: '', notes: '' },
+    defaultValues: { customerId: '', clientName: '', clientPhone: '', clientEmail: '', date: todayIso(), lines: [EMPTY_LINE], paid: false, method: 'CASH', bankId: '', notes: '' },
   })
   const { control, register, setValue, trigger, formState: { errors, isSubmitting } } = form
   const values = useWatch({ control })
@@ -48,8 +50,11 @@ export function useNewBookingModal() {
   const checkout = useCheckoutBooking()
 
   const services = useMemo(() => (servicesQuery.data?.services ?? []).filter(service => service.isActive), [servicesQuery.data])
-  const service = services.find(item => item.id === values.serviceId)
-  const attendants = useMemo(() => eligibleStaff(attendantsQuery.data ?? [], service), [attendantsQuery.data, service])
+  const allAttendants = useMemo(() => attendantsQuery.data ?? [], [attendantsQuery.data])
+  const lineFields = useFieldArray({ control, name: 'lines' })
+  const lines = useMemo(() => (values.lines ?? []).map(line => ({ serviceId: line?.serviceId ?? '', staffId: line?.staffId ?? '', time: line?.time ?? '' })), [values.lines])
+  const serviceOf = (id: string) => services.find(item => item.id === id)
+  const staffName = (id: string) => allAttendants.find(attendant => attendant.id === id)?.name ?? ''
 
   // ─── Client search ──────────────────────────────────────────────────────
   const clientName = values.clientName ?? ''
@@ -77,66 +82,152 @@ export function useNewBookingModal() {
   // Closed until the client field is clicked or typed in: focus alone (the dialog focuses it on open) doesn't count.
   const clientList = useDisclosure()
 
-  // ─── Step 2: times ──────────────────────────────────────────────────────
+  // ─── Step 2: a time per service line ───────────────────────────────────
   const date = values.date ?? ''
-  const staffId = values.staffId ?? ''
   const dayBookings = useBookings({ startDate: date, endDate: date }, { enabled: step === 2 && Boolean(date) })
   const blocked = useBlockedTimesForDates(step === 2 && date ? [date] : [])
   const day = scheduleQuery.data?.find(item => item.dayOfWeek === dayOfWeekOf(date))
-  const durationMinutes = service?.duration ?? 0
-  const slots = useMemo(() => buildSlots({
-    date,
-    day,
-    intervalMinutes: (settingsQuery.data ?? DEFAULT_SETTINGS).bookingInterval,
-    durationMinutes,
-    staffId,
-    bookings: dayBookings.data?.bookings ?? [],
-    blockedTimes: blocked.blockedTimes,
-  }), [date, day, settingsQuery.data, durationMinutes, staffId, dayBookings.data, blocked.blockedTimes])
+  const intervalMinutes = (settingsQuery.data ?? DEFAULT_SETTINGS).bookingInterval
+  /** Lines the dialog filled in itself (right after the line before), so a later change can move them along. */
+  const [suggested, setSuggested] = useState<Set<number>>(() => new Set())
+  const [attempted, setAttempted] = useState(false)
+
+  const durationOf = (line: BookingLineValues) => serviceOf(line.serviceId)?.duration ?? 0
+  const spanOf = (line: BookingLineValues) => [timeToMinutes(line.time), timeToMinutes(line.time) + durationOf(line)] as const
+  /** A line's free start times: also leaves out what earlier lines already hold for the same attendant. */
+  const slotsFor = (all: BookingLineValues[], index: number) => {
+    const line = all[index]
+    if (!line?.serviceId) return []
+    return buildSlots({
+      date,
+      day,
+      intervalMinutes,
+      durationMinutes: durationOf(line),
+      staffId: line.staffId,
+      bookings: dayBookings.data?.bookings ?? [],
+      blockedTimes: blocked.blockedTimes,
+      reserved: all.slice(0, index).filter(other => other.time && other.staffId === line.staffId).map(spanOf),
+    })
+  }
+  const lineSlots = lines.map((_, index) => slotsFor(lines, index))
+
+  const passed = minutesPassedOn(date)
+  const lineErrors = lines.map((line, index) => {
+    if (!line.time) return attempted ? 'Choose a time for this service' : ''
+    const [start, end] = spanOf(line)
+    if (start <= passed) return 'That time has already passed today'
+    const clash = lines.findIndex((other, otherIndex) => otherIndex !== index && Boolean(other.time) && other.staffId === line.staffId && overlaps(start, end, ...spanOf(other)))
+    if (clash < 0) return ''
+    const other = lines[clash]
+    const [otherStart, otherEnd] = spanOf(other)
+    return `Overlaps ${serviceOf(other.serviceId)?.name ?? 'another service'} (${minutesToTime(otherStart)}–${minutesToTime(otherEnd)}) with ${staffName(line.staffId) || 'the same attendant'}`
+  })
+
+  const setLineTime = (index: number, time: string) => {
+    const next = lines.map(line => ({ ...line }))
+    next[index].time = time
+    const auto = new Set(suggested)
+    auto.delete(index)
+    setValue(`lines.${index}.time`, time)
+    // Suggest each following line right after the one before, while it's free and not picked by hand.
+    for (let after = index + 1; after < next.length; after++) {
+      if (next[after].time && !auto.has(after)) break
+      const previous = next[after - 1]
+      const start = previous.time ? minutesToTime(spanOf(previous)[1]) : ''
+      const fits = Boolean(start) && slotsFor(next, after).includes(start)
+      next[after].time = fits ? start : ''
+      if (fits) auto.add(after)
+      else auto.delete(after)
+      setValue(`lines.${after}.time`, next[after].time)
+      if (!fits) break
+    }
+    setSuggested(auto)
+  }
 
   const goToTimes = async () => {
-    const ok = await trigger(['clientName', 'clientPhone', 'clientEmail', 'serviceId', 'date', 'staffId', 'bankId'])
+    const ok = await trigger(['clientName', 'clientPhone', 'clientEmail', 'date', 'lines', 'bankId'])
     if (ok) setStep(2)
   }
 
   const submit = form.handleSubmit(async input => {
-    if (!service) return
-    if (!input.time) {
-      toast.error('Choose a time for this booking.')
+    setAttempted(true)
+    if (input.lines.some(line => !line.time)) {
+      toast.error(input.lines.length > 1 ? 'Choose a time for each service.' : 'Choose a time for this booking.')
       return
     }
+    if (lineErrors.some(Boolean)) {
+      toast.error('Fix the highlighted times first.')
+      return
+    }
+    let client: Pick<Customer, 'id' | 'name' | 'phone' | 'email'>
     try {
-      const client = input.customerId
+      client = input.customerId
         ? { id: input.customerId, name: input.clientName, phone: input.clientPhone, email: input.clientEmail }
         : await createCustomer.mutateAsync({ name: input.clientName, phone: input.clientPhone, email: input.clientEmail })
-      const bookingId = await createBooking.mutateAsync({
-        serviceId: service.id,
-        serviceName: service.name,
-        customerId: client.id,
-        customerName: client.name,
-        customerPhone: client.phone,
-        customerEmail: client.email,
-        date: input.date,
-        startTime: input.time,
-        endTime: minutesToTime(timeToMinutes(input.time) + service.duration),
-        durationMinutes: service.duration,
-        price: service.amount,
-        staffId: input.staffId,
-        staffName: attendants.find(attendant => attendant.id === input.staffId)?.name ?? '',
-        notes: input.notes.trim(),
-      })
-      if (input.paid && bookingId) {
-        try {
-          await checkout.mutateAsync({ id: bookingId, amount: service.amount, method: input.method, bankId: input.bankId || null })
-        } catch (error) {
-          toast.error(`Booking created, but the payment wasn’t recorded. ${errorMessage(error)}`)
-        }
-      }
-      toast.success(`Booking confirmed for ${input.time}`)
-      close()
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not create the booking.'))
+      toast.error(errorMessage(error, 'Could not add the client.'))
+      return
     }
+    // Saved once: retrying failed lines books the same client.
+    if (!input.customerId) {
+      setValue('customerId', client.id)
+      setAddingClient(false)
+    }
+
+    const booked: { index: number; time: string }[] = []
+    const failed: { index: number; label: string; reason: string }[] = []
+    const unpaid: string[] = []
+    // One booking per line (the backend takes one service per booking), one after another.
+    for (const [index, line] of input.lines.entries()) {
+      const service = serviceOf(line.serviceId)
+      const label = `${service?.name ?? 'Service'} at ${line.time}`
+      if (!service) {
+        failed.push({ index, label, reason: 'This service is no longer available.' })
+        continue
+      }
+      try {
+        const bookingId = await createBooking.mutateAsync({
+          serviceId: service.id,
+          serviceName: service.name,
+          customerId: client.id,
+          customerName: client.name,
+          customerPhone: client.phone,
+          customerEmail: client.email,
+          date: input.date,
+          startTime: line.time,
+          endTime: minutesToTime(timeToMinutes(line.time) + service.duration),
+          durationMinutes: service.duration,
+          price: service.amount,
+          staffId: line.staffId,
+          staffName: staffName(line.staffId),
+          notes: input.notes.trim(),
+        })
+        booked.push({ index, time: line.time })
+        if (input.paid && bookingId) {
+          try {
+            await checkout.mutateAsync({ id: bookingId, amount: service.amount, method: input.method, bankId: input.bankId || null })
+          } catch {
+            unpaid.push(label)
+          }
+        }
+      } catch (error) {
+        failed.push({ index, label, reason: errorMessage(error, 'Could not create the booking.') })
+      }
+    }
+
+    if (unpaid.length) toast.error(`Booked, but the payment wasn’t recorded for ${joinNames(unpaid)}. Record it from the booking.`)
+    const times = booked.map(item => item.time).join(', ')
+    const confirmed = booked.length === 1 ? `Booking confirmed for ${client.name} · ${times}` : `${booked.length} bookings confirmed for ${client.name} · ${times}`
+    if (!failed.length) {
+      toast.success(confirmed)
+      close()
+      return
+    }
+    if (booked.length) toast.success(confirmed)
+    toast.error(`Couldn’t book ${joinNames(failed.map(item => item.label))}. ${failed[0].reason}`, { duration: 10_000 })
+    // Keep only the lines that failed, ready to try again.
+    lineFields.remove(booked.map(item => item.index))
+    setSuggested(new Set())
   })
 
   const onContinue = () => { if (step === 1) void goToTimes() }
@@ -186,29 +277,67 @@ export function useNewBookingModal() {
     },
     serviceOptions: services.map(item => ({ value: item.id, label: `${item.name} · ${money(item.amount)}` })),
     servicesLoading: servicesQuery.isLoading,
-    onServiceChange: (id: string) => {
-      setValue('serviceId', id, { shouldValidate: true })
-      const next = eligibleStaff(attendantsQuery.data ?? [], services.find(item => item.id === id))
-      setValue('staffId', next[0]?.id ?? '', { shouldValidate: Boolean(next[0]) })
+    lines: lineFields.fields.map((field, index) => {
+      const line = lines[index] ?? EMPTY_LINE
+      const service = serviceOf(line.serviceId)
+      const slots = lineSlots[index] ?? []
+      return {
+        key: field.id,
+        index,
+        number: index + 1,
+        serviceId: line.serviceId,
+        staffId: line.staffId,
+        serviceName: service?.name ?? '',
+        staffName: staffName(line.staffId),
+        detail: service ? `${durationLong(service.duration)} · ${money(service.amount)}` : '',
+        attendantOptions: eligibleStaff(allAttendants, service).map(attendant => ({ value: attendant.id, label: attendant.name })),
+        serviceError: errors.lines?.[index]?.serviceId?.message,
+        staffError: errors.lines?.[index]?.staffId?.message,
+        slots,
+        time: line.time,
+        /** A typed time that isn't one of the suggested slots. */
+        isCustomTime: Boolean(line.time) && !slots.includes(line.time),
+        isSuggested: suggested.has(index),
+        endTime: service && line.time ? minutesToTime(timeToMinutes(line.time) + service.duration) : '',
+        timeError: lineErrors[index] ?? '',
+      }
+    }),
+    canRemoveLine: lineFields.fields.length > 1,
+    addLine: () => lineFields.append({ ...EMPTY_LINE }, { shouldFocus: false }),
+    removeLine: (index: number) => { lineFields.remove(index); setSuggested(new Set()) },
+    setLineService: (index: number, id: string) => {
+      const options = eligibleStaff(allAttendants, serviceOf(id))
+      const current = lines[index]?.staffId ?? ''
+      setValue(`lines.${index}.serviceId`, id, { shouldValidate: true })
+      setValue(`lines.${index}.staffId`, options.some(option => option.id === current) ? current : options[0]?.id ?? '', { shouldValidate: true })
+      setValue(`lines.${index}.time`, '')
     },
-    attendantOptions: attendants.map(attendant => ({ value: attendant.id, label: attendant.name })),
+    setLineStaff: (index: number, id: string) => {
+      setValue(`lines.${index}.staffId`, id, { shouldValidate: true })
+      setValue(`lines.${index}.time`, '')
+    },
+    setLineTime,
+    /** Earliest typed time allowed today. */
+    minTime: passed >= 0 ? minutesToTime(Math.min(passed + 1, 24 * 60 - 1)) : undefined,
     bankOptions: (banksQuery.data ?? []).map(account => ({ value: account.id, label: maskedAccount(account) })),
     paid: values.paid ?? false,
     setPaid: (paid: boolean) => setValue('paid', paid),
     method: values.method ?? 'CASH',
     setMethod: (method: NewBookingValues['method']) => setValue('method', method),
-    summary: {
-      duration: service ? durationLong(service.duration) : '—',
-      amountDue: money(values.paid || !service ? 0 : service.amount),
-    },
+    summary: (() => {
+      const chosen = lines.map(line => serviceOf(line.serviceId)).filter(service => service !== undefined)
+      const minutes = chosen.reduce((sum, service) => sum + service.duration, 0)
+      const amount = chosen.reduce((sum, service) => sum + service.amount, 0)
+      return {
+        count: chosen.length,
+        duration: minutes ? durationLong(minutes) : '—',
+        amountDue: money(values.paid ? 0 : amount),
+      }
+    })(),
     dateLabel: date ? weekdayDayMonth(fromIsoDate(date)) : '',
-    slots,
     slotsLoading: dayBookings.isLoading || blocked.isLoading || scheduleQuery.isLoading,
     isClosedDay: Boolean(day?.isClosed),
-    time: values.time ?? '',
-    setTime: (time: string) => setValue('time', time),
-    /** A typed time that isn't one of the suggested slots. */
-    isCustomTime: Boolean(values.time) && !slots.includes(values.time ?? ''),
+    hasAllTimes: lines.length > 0 && lines.every(line => line.time),
   }
 }
 

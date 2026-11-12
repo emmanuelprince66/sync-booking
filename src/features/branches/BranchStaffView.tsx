@@ -1,20 +1,20 @@
 import { ArrowRightLeft, Check, Users } from 'lucide-react'
 import { roleLabel } from '@/api/attendants'
 import { Button } from '@/components/ui/Button'
-import { BackLink, EmptyState, ErrorState, InitialsTile, PageTitle } from '@/components/ui/misc'
+import { BackLink, EmptyState, ErrorState, InitialsTile, SectionTitle } from '@/components/ui/misc'
 import { ListSkeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { useBranchStaffPage } from './hooks/useBranchStaffPage'
+import { useBranchStaffView } from './hooks/useBranchStaffView'
 
-/** /branches/:branchId: tick who works at this branch. */
-export default function BranchStaffPage() {
-  const page = useBranchStaffPage()
-  return <div className="mx-auto max-w-[900px] p-5 pb-28 md:p-8 md:pb-28">
+/** Setup → Branches → one branch (?branch=id): tick who works at this branch. */
+export function BranchStaffView({ branchId }: { branchId: string }) {
+  const page = useBranchStaffView(branchId)
+  return <div className="min-w-0 max-w-[900px] pb-20">
     <BackLink label="Back to branches" onClick={page.goBack} className="mb-4"/>
     {page.isNotFound
       ? <div className="rounded-2xl border border-border bg-white"><EmptyState title="Branch not found" text="It may have been deleted, or you no longer have access to it." action={<Button variant="outline" onClick={page.goBack}>Back to branches</Button>}/></div>
       : <>
-        <PageTitle title={page.name} subtitle={page.address || 'Staff working at this branch'} actions={page.isCurrent
+        <SectionTitle title={page.name} subtitle={page.address || 'Staff working at this branch'} actions={page.isCurrent
           ? <span className="inline-flex h-11 items-center rounded-xl bg-[#E2F7E9] px-4 text-xs font-extrabold text-[#24764F]">Current branch</span>
           : page.branch && <Button variant="outline" onClick={page.switchHere}><ArrowRightLeft size={16}/> Switch to this branch</Button>}/>
 
@@ -28,7 +28,7 @@ export default function BranchStaffPage() {
           </div>
           {page.isError && <ErrorState title="We couldn’t load this branch’s staff" onRetry={page.retry} className="m-5"/>}
           {page.isLoading && <ListSkeleton rows={4} rowClassName="flex items-center gap-3 border-b border-border p-5 last:border-0"/>}
-          {!page.isLoading && !page.isError && page.people.length === 0 && <EmptyState icon={<Users size={20}/>} title="No staff to assign yet" text="Add staff members on the Team page, then come back to place them at this branch." action={<Button onClick={page.goToTeam}>Go to Team</Button>}/>}
+          {!page.isLoading && !page.isError && page.people.length === 0 && <EmptyState icon={<Users size={20}/>} title="No staff to assign yet" text="Add staff members in the Team tab, then come back to place them at this branch." action={<Button onClick={page.goToTeam}>Go to Team</Button>}/>}
           {!page.isLoading && !page.isError && <ul>
             {page.people.map(person => <li key={person.attendant.id} className="border-b border-border last:border-0">
               <button type="button" role="checkbox" aria-checked={person.worksHere} disabled={!page.canManage} onClick={() => page.toggle(person)} className={cn('flex w-full items-center gap-3 p-4 text-left transition sm:px-5', person.changed ? 'bg-[#FFFBEF]' : 'hover:bg-[#FAFCFA]', !page.canManage && 'cursor-default')}>

@@ -6,7 +6,7 @@ import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BookingRow, BookingRowsSkeleton } from '@/features/bookings/components/BookingRow'
 import { cn } from '@/lib/cn'
-import { paths } from '@/routes/paths'
+import { paths, servicesPath } from '@/routes/paths'
 import { useMiniCalendar } from './hooks/useMiniCalendar'
 import { useOverview } from './hooks/useOverview'
 
@@ -77,7 +77,7 @@ export default function OverviewPage() {
           <div className="absolute -right-8 -top-9 h-28 w-28 rounded-full border-[22px] border-[#D8FF72]/10"/>
           <div className="relative flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#D8FF72] text-[#173A2E]"><TimerOff size={19}/></span>
-            <div><p className="text-sm font-black">Need some breathing room?</p><p className="mt-1 text-xs font-semibold leading-relaxed text-white/55">Block personal time so clients can only book when you are truly available.</p><Link to={paths.availability} className="mt-3 inline-block text-xs font-black text-[#D8FF72]">Block time →</Link></div>
+            <div><p className="text-sm font-black">Need some breathing room?</p><p className="mt-1 text-xs font-semibold leading-relaxed text-white/55">Block personal time so clients can only book when you are truly available.</p><Link to={servicesPath('availability')} className="mt-3 inline-block text-xs font-black text-[#D8FF72]">Block time →</Link></div>
           </div>
         </div>
       </div>

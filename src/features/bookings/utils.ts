@@ -60,6 +60,9 @@ export const isUpcoming = (booking: Booking, now = Date.now()) => isActiveBookin
 export const eligibleStaff = <T extends { id: string }>(attendants: T[], service?: Pick<Service, 'assignedStaffIds'>) =>
   service?.assignedStaffIds.length ? attendants.filter(attendant => service.assignedStaffIds.includes(attendant.id)) : attendants
 
+/** Minutes already gone on that date: now on today, -1 on any other day. */
+export const minutesPassedOn = (date: string, now = new Date()) => date === todayIso() ? now.getHours() * 60 + now.getMinutes() : -1
+
 type SlotInput = {
   date: string
   day: ScheduleDay | undefined
@@ -68,25 +71,28 @@ type SlotInput = {
   staffId: string
   bookings: Booking[]
   blockedTimes: BlockedTime[]
+  /** Extra busy [start, end) minutes for this attendee, e.g. times already chosen in the same dialog. */
+  reserved?: (readonly [number, number])[]
   now?: Date
 }
 
-const overlaps = (startA: number, endA: number, startB: number, endB: number) => startA < endB && startB < endA
+export const overlaps = (startA: number, endA: number, startB: number, endB: number) => startA < endB && startB < endA
 
 /**
  * Bookable start times for one day: inside opening hours, the whole service fits
  * before closing, and it doesn't run into a break, blocked time or the attendee's
  * other bookings. Past times are dropped on today.
  */
-export const buildSlots = ({ date, day, intervalMinutes, durationMinutes, staffId, bookings, blockedTimes, now = new Date() }: SlotInput): string[] => {
+export const buildSlots = ({ date, day, intervalMinutes, durationMinutes, staffId, bookings, blockedTimes, reserved = [], now = new Date() }: SlotInput): string[] => {
   if (!day || day.isClosed || intervalMinutes <= 0) return []
   const open = timeToMinutes(day.openTime)
   const close = timeToMinutes(day.closeTime)
-  const nowMinutes = date === todayIso() ? now.getHours() * 60 + now.getMinutes() : -1
+  const nowMinutes = minutesPassedOn(date, now)
   const busy = [
     ...day.breaks.map(item => [timeToMinutes(item.startTime), timeToMinutes(item.endTime)]),
     ...blockedTimes.filter(item => item.date === date && (!item.staffId || item.staffId === staffId)).map(item => [timeToMinutes(item.startTime), timeToMinutes(item.endTime)]),
     ...bookings.filter(item => item.date === date && isActiveBooking(item) && (!item.staffId || item.staffId === staffId)).map(item => [timeToMinutes(item.startTime), timeToMinutes(item.startTime) + item.durationMinutes]),
+    ...reserved,
   ]
   const slots: string[] = []
   for (let start = open; start + durationMinutes <= close; start += intervalMinutes) {

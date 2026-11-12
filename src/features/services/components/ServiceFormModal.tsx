@@ -47,7 +47,7 @@ export function ServiceFormModal({ service, onClose }: { service: Service | null
             <div className="text-center"><Upload size={20} className="mx-auto"/><p className="mt-1 text-[10px] font-black">Add images</p></div>
           </FilePicker>}
         </div>
-        <p className="mt-2 font-mono text-[10px] text-[#93A39B]">{form.images.length}/{form.maxImages} images</p>
+        <p className="mt-2 font-mono text-[10px] text-[#93A39B]">{form.imageCount}/{form.maxImages} images</p>
       </div>
       <TextareaField label="Description" placeholder="Describe the service, preparation and what is included..." error={form.errors.description?.message} {...form.register('description')}/>
     </div>

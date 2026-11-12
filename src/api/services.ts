@@ -10,7 +10,8 @@ import { sample } from './sample-data'
  *  GET    service/business/{business_id}/?page&limit&search  → { total, pages, results | data }
  *  POST   service/business/{business_id}/                    JSON, or multipart with repeated `images` (≤5)
  *  PATCH  service/single_service/{id}/                       JSON, or multipart with `images` + repeated `kept_media_ids`
- * Responses carry the gallery as `media: [{ id, file, type: "IMAGE" }]`; older rows only have `image`.
+ * Responses carry the gallery as `media: [{ id, file, type: "IMAGE" }]` (or `media: null`). A legacy single
+ * image comes back as a media entry with `id: null` (older rows: a plain `image`); it is not an editable gallery item.
  *  DELETE service/single_service/{id}/
  * Categories live in ./categories.
  */
@@ -46,11 +47,17 @@ export type Service = {
   maxCapacity: number
 }
 
-const mapMedia = (value: unknown): ServiceMedia[] => (Array.isArray(value) ? value : [])
+const imageEntries = (value: unknown) => (Array.isArray(value) ? value : [])
   .map(asRecord)
   .filter(item => (str(item.type) || 'IMAGE').toUpperCase() === 'IMAGE')
   .map(item => ({ id: str(item.id), url: str(item.file) || str(item.url) }))
-  .filter(item => item.id && item.url)
+  .filter(item => item.url)
+
+/** Saved gallery images: only entries with an id can be kept or removed by id. */
+const mapMedia = (value: unknown): ServiceMedia[] => imageEntries(value).filter(item => item.id)
+
+/** The legacy single image: an id-less media entry, else the old `image` field. */
+const legacyImageOf = (record: Record<string, unknown>) => imageEntries(record.media).find(item => !item.id)?.url || str(record.image)
 
 export const mapService = (value: unknown): Service => {
   const record = asRecord(value)
@@ -63,7 +70,7 @@ export const mapService = (value: unknown): Service => {
     categoryName: str(record.category_name) || str(record.category) || str(category.name),
     description: str(record.description),
     amount: num(record.amount ?? record.selling_price),
-    image: media[0]?.url || str(record.image),
+    image: media[0]?.url || legacyImageOf(record),
     media,
     duration: num(record.duration),
     isActive: record.is_active !== false,
@@ -163,7 +170,8 @@ const toMockService = (input: ServiceInput, base?: Service): Service => {
     maxCapacity: input.maxCapacity,
     assignedStaffIds: input.assignedStaffIds,
     media,
-    image: media[0]?.url ?? '',
+    // Untouched saved images (keptMediaIds null) keep the legacy picture too.
+    image: media[0]?.url ?? (input.keptMediaIds === null ? base?.image ?? '' : ''),
   }
 }
 

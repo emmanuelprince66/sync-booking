@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { staffErrorMessage, useAttendants, useBranchAttendants, useSetBranchStaff, type Attendant } from '@/api/attendants'
 import { businessAddress, useBusinesses } from '@/api/business'
@@ -7,7 +7,7 @@ import { teamColor } from '@/features/bookings/utils'
 import { useActivateBusiness } from '@/features/business/hooks/useActivateBusiness'
 import { useTeamAccess } from '@/features/team/hooks/useTeamAccess'
 import { initials } from '@/lib/format'
-import { paths } from '@/routes/paths'
+import { paths, setupPath } from '@/routes/paths'
 import { useBusinessStore } from '@/stores/business-store'
 
 export type BranchPerson = {
@@ -26,8 +26,7 @@ export type BranchPerson = {
  * list to single_attendant/business/{id}/, the same call sink makes from its
  * Manage businesses dialog; nobody can be left without a branch.
  */
-export function useBranchStaffPage() {
-  const { branchId = '' } = useParams()
+export function useBranchStaffView(branchId: string) {
   const navigate = useNavigate()
   const businesses = useBusinesses()
   const currentId = useBusinessStore(state => state.businessId)
@@ -86,7 +85,7 @@ export function useBranchStaffPage() {
       })
       const stranded = updates.find(update => update.businessIds.length === 0)
       if (stranded) {
-        toast.error(`${stranded.name} has to work at one branch at least. Add them to another branch first, or delete them from the Team page.`)
+        toast.error(`${stranded.name} has to work at one branch at least. Add them to another branch first, or delete them in Setup → Team.`)
         return
       }
       try {
@@ -102,7 +101,7 @@ export function useBranchStaffPage() {
       activate(branch)
       navigate(paths.overview)
     },
-    goBack: () => navigate(paths.branches),
-    goToTeam: () => navigate(paths.team),
+    goBack: () => navigate(setupPath('branches')),
+    goToTeam: () => navigate(setupPath('team')),
   }
 }
