@@ -1,20 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
-import { ATTENDANT_ROLES, ATTENDANT_ROLE_VALUES, staffErrorMessage, useAddAttendant, useAttendant, useEditAttendant, type Attendant, type AttendantRole } from '@/api/attendants'
+import { TEAM_ROLES, isTeamRole, roleLabel, staffErrorMessage, useAddAttendant, useAttendant, useEditAttendant, type Attendant, type TeamRole } from '@/api/attendants'
 import { ApiError } from '@/lib/api-client'
 import { asRecord, str } from '@/api/http'
 import { staffSchema, type StaffFormValues } from '../schemas'
-import { usePermissionMatrix } from './usePermissionMatrix'
 
-const EMPTY: StaffFormValues = { firstname: '', lastname: '', phone: '', role: undefined as unknown as AttendantRole }
+const EMPTY: StaffFormValues = { firstname: '', lastname: '', phone: '', role: undefined as unknown as TeamRole }
 const FIELDS = ['firstname', 'lastname', 'phone', 'role'] as const
 
-const asRole = (role: string) => (ATTENDANT_ROLE_VALUES as string[]).includes(role) ? (role as AttendantRole) : EMPTY.role
+const ROLE_OPTIONS = TEAM_ROLES.map(role => ({ value: role.value, label: role.label, hint: role.hint }))
 
 /**
- * Add or edit a staff member (sink-inventory's AddStaff/EditStaff): personal details,
- * role, and the permissions checklist. Edit loads the saved details and permissions first.
+ * Add or edit a staff member (sink-inventory's AddStaff/EditStaff): personal details and
+ * one of two roles, Attendant or Super admin, each with the backend's default permissions.
+ * Someone on an older sink role (e.g. Manager) is asked to pick one of the two on edit.
  */
 export function useStaffForm({ attendant, onClose }: { attendant: Attendant | null; onClose: () => void }) {
   const id = attendant?.id ?? ''
@@ -22,16 +22,16 @@ export function useStaffForm({ attendant, onClose }: { attendant: Attendant | nu
   const detail = useAttendant(id)
   const add = useAddAttendant()
   const edit = useEditAttendant()
+  const savedRole = detail.data?.role ?? ''
 
   const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
     defaultValues: EMPTY,
     // Edit: fills in once single_attendant has loaded.
-    values: detail.data ? { firstname: detail.data.firstname, lastname: detail.data.lastname, phone: detail.data.phone, role: asRole(detail.data.role) } : undefined,
+    values: detail.data ? { firstname: detail.data.firstname, lastname: detail.data.lastname, phone: detail.data.phone, role: isTeamRole(savedRole) ? savedRole : EMPTY.role } : undefined,
     resetOptions: { keepDirtyValues: true },
   })
   const role = useWatch({ control: form.control, name: 'role' })
-  const matrix = usePermissionMatrix({ role: role || undefined, attendantId: id || undefined, savedRole: detail.data?.role })
 
   /** Field errors from the backend go under their fields as well as in the toast. */
   const showFieldErrors = (error: unknown) => {
@@ -45,10 +45,10 @@ export function useStaffForm({ attendant, onClose }: { attendant: Attendant | nu
   }
 
   const onSubmit = form.handleSubmit(async values => {
-    const save = matrix.resolveForSave()
     try {
-      if (isEdit) await edit.mutateAsync({ id, input: values, save })
-      else await add.mutateAsync({ input: values, save })
+      // Same role: only the details are saved, so the permissions they already have stay put.
+      if (isEdit) await edit.mutateAsync({ id, input: values, options: { keepRole: values.role === savedRole } })
+      else await add.mutateAsync({ input: values })
       toast.success(isEdit ? 'Staff member updated' : 'Staff member added')
       onClose()
     } catch (error) {
@@ -61,8 +61,11 @@ export function useStaffForm({ attendant, onClose }: { attendant: Attendant | nu
     isEdit,
     register: form.register,
     errors: form.formState.errors,
-    roleOptions: ATTENDANT_ROLES,
-    matrix: matrix.editor,
+    roleOptions: ROLE_OPTIONS,
+    /** What the chosen role can do, under the select. */
+    roleHint: TEAM_ROLES.find(option => option.value === role)?.hint ?? '',
+    /** Edit of someone on an older role that isn't offered any more. */
+    legacyRoleNote: isEdit && savedRole && !isTeamRole(savedRole) ? `Currently ${roleLabel(savedRole)}. Choose Attendant or Super admin to save.` : '',
     onSubmit,
     isSubmitting: add.isPending || edit.isPending,
     /** Edit: the saved details are still loading. */

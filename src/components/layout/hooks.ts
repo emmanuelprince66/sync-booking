@@ -10,6 +10,7 @@ import { getBookingUrl, useStorefrontProfile } from '@/api/storefront'
 import { formatActivityDate } from '@/api/http'
 import { useActivateBusiness } from '@/features/business/hooks/useActivateBusiness'
 import { useMenu } from '@/hooks/useMenu'
+import { usePermissions } from '@/hooks/usePermissions'
 import { todayIso } from '@/lib/dates'
 import { formatLongDate, initials } from '@/lib/format'
 import { paths, setupPath } from '@/routes/paths'
@@ -17,6 +18,7 @@ import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 import { useBusinessDataStore } from '@/stores/business-data-store'
 import { useBusinessStore } from '@/stores/business-store'
 import { useUiStore } from '@/stores/ui-store'
+import { navItems } from './nav'
 
 const SUPPORT_EMAIL = 'support@sync360.africa'
 
@@ -59,6 +61,7 @@ export function useAccountMenu(onNavigate?: () => void) {
   const currentId = useBusinessStore(state => state.businessId)
   const branches = useBusinesses()
   const activate = useActivateBusiness()
+  const { canManageBusiness } = usePermissions()
   const menu = useMenu()
   const close = () => { menu.close(); onNavigate?.() }
   const actions = useAccountActions(close)
@@ -81,18 +84,23 @@ export function useAccountMenu(onNavigate?: () => void) {
       activate(option.business)
       navigate(paths.overview)
     },
-    manageBranches: () => { close(); navigate(setupPath('branches')) },
+    /** Super admin only: Attendants switch between the branches they work at, nothing more. */
+    manageBranches: canManageBusiness ? () => { close(); navigate(setupPath('branches')) } : undefined,
   }
 }
 
-/** Sidebar data: today's count on the Bookings link and the booking page card. */
+/** Sidebar data: the links this role may use, today's count on Bookings and the booking page card. */
 export function useSidebar() {
+  const permissions = usePermissions()
   const { data: bookings } = useDefaultBookings()
   const { data: profile } = useStorefrontProfile()
   const today = todayIso()
   const todayCount = (bookings?.bookings ?? []).filter(booking => booking.date === today && booking.status !== 'CANCELLED').length
   const bookingUrl = profile ? getBookingUrl(profile) : null
   return {
+    items: navItems.filter(item => permissions.canAccess(item.id)),
+    /** The storefront card links into Setup, so Attendants don't get it. */
+    showStorefront: permissions.canManageBusiness,
     counts: { bookings: todayCount } as Record<string, number | undefined>,
     bookingHost: bookingUrl?.replace(/^https?:\/\//, '') ?? '',
     hasBookingPage: Boolean(bookingUrl),
@@ -115,14 +123,15 @@ const firstNameOf = (user: AuthUser | null | undefined) =>
 export function useTopbar() {
   const user = useAuthStore(state => state.user)
   const businessName = useBusinessDataStore(state => state.businessData?.name) ?? ''
+  const { canManageBusiness } = usePermissions()
   const { data: kyc } = useKycStatus()
   const tier = kyc?.tier ?? 0
   return {
     firstName: firstNameOf(user),
     businessName,
     date: formatLongDate(),
-    /** Shown once KYC status has loaded. */
-    verification: kyc ? { text: tier > 0 ? 'Verified' : 'Pending', ok: tier > 0 } : null,
+    /** Shown once KYC status has loaded, to Super admins only (KYC is theirs to complete). */
+    verification: kyc && canManageBusiness ? { text: tier > 0 ? 'Verified' : 'Pending', ok: tier > 0 } : null,
   }
 }
 
@@ -134,6 +143,7 @@ export function useProfileMenu() {
   const { data: kyc } = useKycStatus()
   const menu = useMenu()
   const actions = useAccountActions(menu.close)
+  const { canManageBusiness } = usePermissions()
   const name = resolveUserName(user)
   const tier = kyc?.tier ?? 0
   return {
@@ -144,7 +154,8 @@ export function useProfileMenu() {
     email: user?.email ?? '',
     initials: initials(name || businessName || 'U'),
     roleLabel: user?.role ? roleLabel(user.role) : 'Owner',
-    isOwner: !user?.role || user.role === 'OWNER',
+    /** Business settings and KYC: Super admins only. */
+    canManageBusiness,
     kycBadge: kyc ? { text: tier > 0 ? `Tier ${tier}` : 'Not started', ok: tier > 0 } : undefined,
     goToSettings: () => { menu.close(); navigate(paths.settings) },
     goToKyc: () => { menu.close(); navigate(paths.kyc) },

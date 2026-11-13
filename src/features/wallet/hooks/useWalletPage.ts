@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { maskedAccount, useSettlementAccounts } from '@/api/banks'
 import { useWalletOverview } from '@/api/wallet'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
+import { usePermissions } from '@/hooks/usePermissions'
 import { paths } from '@/routes/paths'
 import type { PinMode } from './usePinFlow'
 import type { TransferPreset } from './useTransferFlow'
@@ -11,10 +12,13 @@ import type { TransferPreset } from './useTransferFlow'
  * The Wallet page: balance, withdraw to the payout bank, transfer to any account,
  * the transaction PIN and the transactions list. GET wallet/{bank_id}/ is shared
  * (one cache entry) by the balance card and the first transactions page.
+ * As sink's Transactions screen: manage_bank_details shows the balance, PIN and payout bank; Withdraw and
+ * Transfer also need can_initiate_expense_transfer. Without them, the transactions list only.
  */
 export function useWalletPage() {
   const money = useFormatMoney()
   const navigate = useNavigate()
+  const { canManageWallet, canTransfer, canManageBusiness } = usePermissions()
   const wallet = useWalletOverview()
   const accounts = useSettlementAccounts()
   // undefined = closed; null = open on a blank recipient; a preset = open on the payout bank.
@@ -28,6 +32,11 @@ export function useWalletPage() {
   const hasPin = data?.hasPin ?? false
 
   return {
+    canManageWallet,
+    canTransfer,
+    /** KYC lives in Setup (settings:view). */
+    canOpenKyc: canManageBusiness,
+    subtitle: canTransfer ? 'Withdraw your earnings, send money and see every payment in and out.' : canManageWallet ? 'Your balance and every payment in and out.' : 'Every payment in and out of the business wallet.',
     isLoading: wallet.isLoading,
     isError: wallet.isError,
     retry: () => void wallet.refetch(),
@@ -35,7 +44,7 @@ export function useWalletPage() {
     goToKyc: () => navigate(paths.kyc),
     balance: {
       label: money(balance),
-      note: !hasWallet ? 'Complete KYC to open your wallet' : hasBalance ? 'Available to withdraw or transfer' : 'Your balance is empty',
+      note: !hasWallet ? 'Complete KYC to open your wallet' : hasBalance ? (canTransfer ? 'Available to withdraw or transfer' : 'Available balance') : 'Your balance is empty',
       account: data?.accountNumber ? `${data.bankName ? `${data.bankName} · ` : ''}${data.accountNumber}` : '',
       accountName: data?.accountName ?? '',
       inflow: money(data?.inflow ?? 0),

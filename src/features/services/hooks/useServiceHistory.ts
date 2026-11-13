@@ -3,6 +3,7 @@ import { useAttendants } from '@/api/attendants'
 import { useBookings, type Booking } from '@/api/bookings'
 import type { DateRange } from '@/components/ui/DateRangeFilter'
 import { useFormatMoney, useFormatMoneyCompact } from '@/hooks/useFormatMoney'
+import { usePermissions } from '@/hooks/usePermissions'
 import { toIsoDate } from '@/lib/dates'
 
 export const HISTORY_PAGE_SIZE = 10
@@ -38,12 +39,16 @@ const dateLabel = (iso: string) => {
  * bookings list for the range (GET service/bookings/business/{id}/?start_date&end_date,
  * whole range in one response) and groups it per date + service on the client.
  * The attendant and service filters match the booking's staff id / service id.
+ * Attendants only get their own bookings (the bookings hooks narrow them), with the
+ * attendant filter fixed on themselves.
  */
 export function useServiceHistory() {
   const money = useFormatMoney()
   const moneyCompact = useFormatMoneyCompact()
   const [range, setRangeState] = useState<DateRange | undefined>(thisMonth)
-  const [attendant, setAttendantState] = useState(ALL)
+  const { staffScopeId, isAttendant } = usePermissions()
+  const [attendantChoice, setAttendantState] = useState(ALL)
+  const attendant = isAttendant ? staffScopeId : attendantChoice
   const [service, setServiceState] = useState(ALL)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSizeState] = useState(HISTORY_PAGE_SIZE)
@@ -61,8 +66,9 @@ export function useServiceHistory() {
     const names = new Map<string, string>()
     for (const person of team.data ?? []) names.set(person.id, person.name)
     for (const booking of booked) if (booking.staffId && !names.has(booking.staffId)) names.set(booking.staffId, booking.staffName || 'Staff member')
+    if (isAttendant) return [{ value: staffScopeId, label: names.get(staffScopeId) ?? 'My bookings' }]
     return [{ value: ALL, label: 'All attendants' }, ...[...names].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))]
-  }, [team.data, booked])
+  }, [team.data, booked, isAttendant, staffScopeId])
 
   const serviceOptions = useMemo(() => {
     const names = new Map<string, string>()
@@ -100,15 +106,17 @@ export function useServiceHistory() {
     attendant,
     attendantOptions,
     setAttendant: (next: string) => { setAttendantState(next); setPage(1) },
+    /** Attendants only see their own history. */
+    attendantLocked: isAttendant,
     service,
     serviceOptions,
     setService: (next: string) => { setServiceState(next); setPage(1) },
-    isFiltered: attendant !== ALL || service !== ALL,
+    isFiltered: (!isAttendant && attendant !== ALL) || service !== ALL,
     clearFilters: () => { setAttendantState(ALL); setServiceState(ALL); setPage(1) },
     stats: {
       booked: String(filtered.length),
       revenue: moneyCompact(totalRevenue),
-      scope: attendant !== ALL && attendantName ? `By ${attendantName}` : undefined,
+      scope: isAttendant ? 'By you' : attendant !== ALL && attendantName ? `By ${attendantName}` : undefined,
     },
     rule: HISTORY_RULE,
     rows: rows.slice((currentPage - 1) * pageSize, currentPage * pageSize),

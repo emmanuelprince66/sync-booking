@@ -1,7 +1,10 @@
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
+import { toast } from 'sonner'
 import { useCurrentBusinessId } from '@/api/business'
 import { AppLoader } from '@/components/ui/AppLoader'
+import { usePermissions } from '@/hooks/usePermissions'
+import type { AppArea } from '@/lib/permissions'
 import { useBusinessStore } from '@/stores/business-store'
 import { useIsAuthenticated } from '@/stores/auth-store'
 import { paths } from './paths'
@@ -37,4 +40,17 @@ export function RequireBusiness() {
   if (!businessId) return <><AppLoader/><Navigate to={paths.selectBusiness} replace state={{ from: location.pathname }}/></>
   if (isResolving) return <AppLoader label="Loading your business"/>
   return <Suspense fallback={<AppLoader/>}><Outlet/></Suspense>
+}
+
+const NO_ACCESS_TOAST = 'no-access'
+
+/** A route only some roles may open (see lib/permissions). Anyone else goes to Overview with a toast. */
+export function RequireArea({ area }: { area: AppArea }) {
+  const allowed = usePermissions().canAccess(area)
+  useEffect(() => {
+    // A fixed id, so a double render or a quick second redirect shows one toast.
+    if (!allowed) toast.error('You don’t have access to that page.', { id: NO_ACCESS_TOAST })
+  }, [allowed])
+  if (!allowed) return <Navigate to={paths.overview} replace/>
+  return <Outlet/>
 }

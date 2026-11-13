@@ -35,7 +35,7 @@ export function ServiceHistory() {
   return <div className="min-w-0">
     <div className="mb-4 grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)]">
       <DateRangeFilter value={history.range} onChange={history.setRange} align="start" placeholder="This month" className="flex w-full" triggerClassName="w-full"/>
-      <Select aria-label="Filter by attendant" value={history.attendant} options={history.attendantOptions} onValueChange={history.setAttendant} boxClassName="h-10 min-h-0"/>
+      <Select aria-label="Filter by attendant" value={history.attendant} options={history.attendantOptions} onValueChange={history.setAttendant} disabled={history.attendantLocked} boxClassName="h-10 min-h-0"/>
       <Select aria-label="Filter by service" value={history.service} options={history.serviceOptions} onValueChange={history.setService} boxClassName="h-10 min-h-0"/>
     </div>
 

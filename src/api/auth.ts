@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { env } from '@/config/env'
 import { apiRequest, mockDelay } from '@/lib/api-client'
+import { mockPermissionsFor } from '@/lib/sink-permissions'
 import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 
 /**
@@ -8,7 +9,7 @@ import { useAuthStore, type AuthUser } from '@/stores/auth-store'
  *  POST auth/login/         { email, password }                         → { tokens: { access, refresh }, ...user }
  *  POST auth/signup/        { firstname, lastname, phone, email, password, referal? }
  *  POST auth/verify-phone/  { token, phone }
- * Set VITE_AUTH_MODE=mock to bypass the backend with a demo account.
+ * Set VITE_AUTH_MODE=mock to bypass the backend with a demo account (see DEMO_STAFF for the role logins).
  */
 
 export type LoginInput = { email: string; password: string }
@@ -17,10 +18,32 @@ export type VerifyPhoneInput = { token: string; phone: string }
 
 type LoginResponse = AuthUser & { tokens: { access: string; refresh: string } }
 
-const DEMO_USER: AuthUser = { firstname: 'Jenny', lastname: 'Akin', email: 'jenny@junostudio.ng', phone: '0802 400 1294', role: 'OWNER' }
+const DEMO_USER: AuthUser = { id: 'sample-staff-jenny', firstname: 'Jenny', lastname: 'Akin', email: 'jenny@junostudio.ng', phone: '0802 400 1294', role: 'OWNER' }
+
+/**
+ * Sample-data logins for trying the roles, by the part of the email before "@" (e.g. attendant@kemistore.com).
+ * Each carries a `permissions` object shaped like the real login's (flags + permissions_matrix), from the
+ * sample role defaults in lib/sink-permissions.ts. Staff ids match the sample team, so "own bookings" show.
+ *  - admin@      super admin (ADMIN-ATTENDANT) with the admin defaults
+ *  - attendant@  Maya Johnson, attendant with the attendant defaults
+ *  - bank@       Teni Williams, attendant with banking:view/manage ticked as well (manage_bank_details)
+ *  - legacy@     Maya Johnson, a saved session from before permissions were stored (none at all → role rules)
+ * Anything else signs in as the owner.
+ */
+const DEMO_STAFF: Record<string, AuthUser> = {
+  attendant: { id: 'sample-staff-maya', firstname: 'Maya', lastname: 'Johnson', email: 'attendant@kemistore.com', phone: '0803 111 2200', role: 'ATTENDANT', permissions: mockPermissionsFor('ATTENDANT') },
+  admin: { id: 'sample-staff-admin', firstname: 'Tola', lastname: 'Martins', email: 'admin@kemistore.com', phone: '0803 111 2233', role: 'ADMIN-ATTENDANT', permissions: mockPermissionsFor('ADMIN-ATTENDANT') },
+  bank: { id: 'sample-staff-teni', firstname: 'Teni', lastname: 'Williams', email: 'bank@kemistore.com', phone: '0806 222 7788', role: 'ATTENDANT', permissions: mockPermissionsFor('ATTENDANT', { banking: ['view', 'manage'] }) },
+  legacy: { id: 'sample-staff-maya', firstname: 'Maya', lastname: 'Johnson', email: 'legacy@kemistore.com', phone: '0803 111 2200', role: 'ATTENDANT' },
+}
+
+const demoUserFor = (email: string): AuthUser => {
+  const staff = DEMO_STAFF[email.trim().toLowerCase().split('@')[0]]
+  return staff ? { ...staff, email: email.trim() } : { ...DEMO_USER, email: email.trim() || DEMO_USER.email }
+}
 
 const login = async (input: LoginInput): Promise<LoginResponse> => {
-  if (env.authMode === 'mock') return mockDelay({ ...DEMO_USER, email: input.email || DEMO_USER.email, tokens: { access: 'demo-access', refresh: 'demo-refresh' } })
+  if (env.authMode === 'mock') return mockDelay({ ...demoUserFor(input.email), tokens: { access: 'demo-access', refresh: 'demo-refresh' } })
   return apiRequest<LoginResponse>('auth/login/', { method: 'POST', body: input, auth: false })
 }
 

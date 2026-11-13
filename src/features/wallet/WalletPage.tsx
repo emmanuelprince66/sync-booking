@@ -10,32 +10,39 @@ import { WalletTransactions } from './components/WalletTransactions'
 import { useWalletPage, type WalletPageModel } from './hooks/useWalletPage'
 
 function Flow({ icon, label, value }: { icon: 'in' | 'out'; label: string; value: string }) {
-  return <div className="min-w-0 rounded-xl bg-white/[0.07] px-3 py-2.5">
-    <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white/55">{icon === 'in' ? <ArrowDownLeft size={13} className="text-[#D8FF72]"/> : <ArrowUpRight size={13} className="text-[#FFB4A8]"/>}{label}</p>
-    <p className="mt-1 truncate text-sm font-black">{value}</p>
+  return <div className="flex min-w-0 items-center gap-3 rounded-xl bg-white/[0.07] px-3 py-3 sm:px-4">
+    <span className={cn('hidden h-9 w-9 shrink-0 place-items-center rounded-lg sm:grid', icon === 'in' ? 'bg-[#D8FF72]/15 text-[#D8FF72]' : 'bg-[#FFB4A8]/15 text-[#FFB4A8]')}>{icon === 'in' ? <ArrowDownLeft size={17}/> : <ArrowUpRight size={17}/>}</span>
+    <div className="min-w-0">
+      <p className="text-[10px] font-extrabold uppercase tracking-wide text-white/55">{label}</p>
+      <p className="mt-0.5 truncate text-base font-black">{value}</p>
+    </div>
   </div>
 }
 
 function BalanceCard({ page }: { page: WalletPageModel }) {
   const { balance, withdraw, transfer } = page
-  return <section aria-label="Wallet balance" className="flex min-w-0 flex-col justify-between gap-6 rounded-2xl bg-[#173A2E] p-5 text-white sm:p-6">
-    <div className="min-w-0">
-      <p className="text-xs font-bold text-white/55">Available balance</p>
-      <p className="mt-2 break-words text-3xl font-black sm:text-4xl">{balance.label}</p>
-      <p className="mt-1 text-[11px] font-bold text-[#D8FF72]">{balance.note}</p>
-      {balance.account && <p className="mt-2 truncate text-[11px] font-semibold text-white/45">Wallet · {balance.account}{balance.accountName ? ` · ${balance.accountName}` : ''}</p>}
-    </div>
-    <div className="grid grid-cols-2 gap-2 sm:max-w-md">
-      <Flow icon="in" label="Money in" value={balance.inflow}/>
-      <Flow icon="out" label="Money out" value={balance.outflow}/>
+  // Two rows that use the full width: balance beside money in/out, then the actions across the card.
+  return <section aria-label="Wallet balance" className="relative flex min-w-0 flex-col justify-between gap-6 overflow-hidden rounded-2xl bg-[#173A2E] p-5 text-white sm:p-6">
+    <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#D8FF72]/[0.06]"/>
+    <div className="relative grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
+      <div className="min-w-0">
+        <p className="text-xs font-bold text-white/55">Available balance</p>
+        <p className="mt-2 break-words text-3xl font-black sm:text-4xl">{balance.label}</p>
+        <p className="mt-1 text-[11px] font-bold text-[#D8FF72]">{balance.note}</p>
+        {balance.account && <p className="mt-2 truncate text-[11px] font-semibold text-white/45">Wallet · {balance.account}{balance.accountName ? ` · ${balance.accountName}` : ''}</p>}
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+        <Flow icon="in" label="Money in" value={balance.inflow}/>
+        <Flow icon="out" label="Money out" value={balance.outflow}/>
+      </div>
     </div>
     {page.hasWallet
-      ? <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+      ? page.canTransfer && <div className="relative grid grid-cols-2 gap-2">
         <Button onClick={withdraw.open} disabled={!withdraw.enabled} className="h-12 w-full bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A]"><Banknote size={18}/> Withdraw</Button>
         <Button onClick={transfer.open} disabled={!transfer.enabled} className="h-12 w-full border border-white/20 bg-white/[0.08] text-white shadow-none hover:bg-white/[0.14]"><Send size={17}/> Transfer</Button>
       </div>
-      : <Button onClick={page.goToKyc} className="h-12 w-full bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A] sm:w-auto"><ShieldCheck size={17}/> Complete KYC</Button>}
-    {withdraw.hint && <p className="-mt-3 text-[11px] font-semibold text-white/55">{withdraw.hint}</p>}
+      : page.canOpenKyc && <Button onClick={page.goToKyc} className="h-12 w-full bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A] sm:w-auto"><ShieldCheck size={17}/> Complete KYC</Button>}
+    {page.canTransfer && withdraw.hint && <p className="-mt-3 text-[11px] font-semibold text-white/55">{withdraw.hint}</p>}
   </section>
 }
 
@@ -44,8 +51,8 @@ function BalanceSkeleton() {
     <Skeleton className="h-3 w-28 bg-white/15"/>
     <Skeleton className="mt-3 h-9 w-48 bg-white/15"/>
     <Skeleton className="mt-2 h-3 w-40 bg-white/10"/>
-    <div className="mt-6 grid grid-cols-2 gap-2 sm:max-w-md"><Skeleton className="h-14 rounded-xl bg-white/10"/><Skeleton className="h-14 rounded-xl bg-white/10"/></div>
-    <div className="mt-6 grid grid-cols-2 gap-2 sm:max-w-md"><Skeleton className="h-12 rounded-xl bg-white/15"/><Skeleton className="h-12 rounded-xl bg-white/10"/></div>
+    <div className="mt-6 grid grid-cols-2 gap-2"><Skeleton className="h-14 rounded-xl bg-white/10"/><Skeleton className="h-14 rounded-xl bg-white/10"/></div>
+    <div className="mt-6 grid grid-cols-2 gap-2"><Skeleton className="h-12 rounded-xl bg-white/15"/><Skeleton className="h-12 rounded-xl bg-white/10"/></div>
   </SkeletonGroup>
 }
 
@@ -96,22 +103,22 @@ function PayoutCard({ page }: { page: WalletPageModel }) {
 export default function WalletPage() {
   const page = useWalletPage()
   return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
-    <PageTitle title="Wallet" subtitle="Withdraw your earnings, send money and see every payment in and out."/>
+    <PageTitle title={page.canManageWallet ? 'Wallet' : 'Transactions'} subtitle={page.subtitle}/>
     {page.isError
       ? <ErrorState title="We couldn’t load your wallet" onRetry={page.retry}/>
       : <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {page.canManageWallet && <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           {page.isLoading ? <BalanceSkeleton/> : <BalanceCard page={page}/>}
           <div className="flex min-w-0 flex-col gap-4">
             <PinCard page={page}/>
             <PayoutCard page={page}/>
           </div>
-        </div>
+        </div>}
         {page.isLoading
           ? <SkeletonGroup label="Loading transactions" className="space-y-3 rounded-2xl border border-border bg-white p-5">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-12 w-full rounded-xl"/>)}</SkeletonGroup>
           : <WalletTransactions bankId={page.bankId}/>}
       </div>}
-    {page.transfer.isOpen && <TransferModal bankId={page.bankId} balance={page.rawBalance} hasPin={page.pin.isSet} senderName={page.senderName} preset={page.transfer.preset} onClose={page.transfer.close} onForgotPin={() => page.pin.open('forgot')}/>}
-    {page.pin.mode && <PinModal mode={page.pin.mode} onClose={page.pin.close}/>}
+    {page.canTransfer && page.transfer.isOpen && <TransferModal bankId={page.bankId} balance={page.rawBalance} hasPin={page.pin.isSet} senderName={page.senderName} preset={page.transfer.preset} onClose={page.transfer.close} onForgotPin={() => page.pin.open('forgot')}/>}
+    {page.canManageWallet && page.pin.mode && <PinModal mode={page.pin.mode} onClose={page.pin.close}/>}
   </div>
 }

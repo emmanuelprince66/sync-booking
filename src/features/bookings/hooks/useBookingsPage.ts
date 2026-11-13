@@ -1,30 +1,40 @@
-import { CalendarCheck, CheckCircle2, Clock3, Wallet } from 'lucide-react'
+import { Banknote, CalendarCheck, CalendarDays, Wallet } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
-import { defaultBookingsRange, useDefaultBookings, useFetchAllBookings, usePagedBookings, type BookingsQuery, type BookingStatus, type RefundFilter } from '@/api/bookings'
+import { defaultBookingsRange, useBookings, useFetchAllBookings, usePagedBookings, type Booking, type BookingsQuery, type BookingStatus, type RefundFilter } from '@/api/bookings'
+import type { StatTone } from '@/components/ui/ColorStatCard'
 import type { DateRange } from '@/components/ui/DateRangeFilter'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useFormatMoney, useFormatMoneyCompact } from '@/hooks/useFormatMoney'
+import { usePermissions } from '@/hooks/usePermissions'
 import { downloadCsv } from '@/lib/csv'
 import { fromIsoDate, todayIso, toIsoDate } from '@/lib/dates'
-import { BOOKING_STATUS_FILTERS, BOOKINGS_PAGE_SIZE, BOOKINGS_PAGE_SIZES, type BookingsTab } from '../constants'
+import { BOOKING_STATUS_FILTERS, BOOKING_TABS, BOOKINGS_PAGE_SIZE, BOOKINGS_PAGE_SIZES, type BookingsTab } from '../constants'
 import { isUpcoming, STATUS_LABELS } from '../utils'
 import { useBookingActions } from './useBookingActions'
 
 const SEARCH_DEBOUNCE_MS = 400
 
+/** Money already taken on a booking and kept: refunded or refund-due payments don't count. */
+const collectedOn = (booking: Booking) => (booking.paymentStatus === 'REFUNDED' || booking.paymentStatus === 'REFUND_PENDING' ? 0 : booking.amountPaid)
+
+const plural = (count: number, word: string) => `${count} ${count === 1 ? word : `${word}s`}`
+
 /**
  * Bookings screen. The list is paged, filtered and searched on the server
- * (page, limit, status, payment_status, search); the stat cards read the shared
- * unpaged window that the overview and sidebar use.
+ * (page, limit, status, payment_status, search). The stat cards count every booking
+ * in the selected dates (and search), read whole in one request, so they always add
+ * up to what the list can show; clicking one narrows the list to it.
+ * Attendants only get their own bookings (the bookings hooks narrow them) and no Refunds tab.
  */
 export function useBookingsPage() {
   const money = useFormatMoney()
   const moneyCompact = useFormatMoneyCompact()
-  const { openNewBooking, openBooking } = useBookingActions()
+  const { openNewBooking, openBooking, canAddBooking } = useBookingActions()
+  const { canManageBookings } = usePermissions()
   const [params] = useSearchParams()
   const [tab, setTabState] = useState<BookingsTab>('All')
   const [range, setRange] = useState(defaultBookingsRange)
@@ -41,7 +51,7 @@ export function useBookingsPage() {
   const searchInput = searchOverride ?? params.get('q') ?? ''
   const search = useDebounce(searchInput.trim(), SEARCH_DEBOUNCE_MS)
 
-  const isRefunds = tab === 'Refunds'
+  const isRefunds = tab === 'Refunds' && canManageBookings
   /** The filters without the page, shared by the list and the export. */
   const filters = useMemo<BookingsQuery>(() => {
     if (isRefunds) return { paymentStatus: refundFilter, search }
@@ -54,7 +64,8 @@ export function useBookingsPage() {
   }, [isRefunds, refundFilter, search, tab, range, status, paymentFilter])
 
   const list = usePagedBookings({ ...filters, page, limit: pageSize })
-  const statsQuery = useDefaultBookings()
+  // Same key as the shared default window when the dates and search are untouched, so no extra request.
+  const statsQuery = useBookings({ startDate: range.startDate, endDate: range.endDate, search })
   const windowBookings = useMemo(() => statsQuery.data?.bookings ?? [], [statsQuery.data])
   const pagination = list.data?.pagination
   const totalPages = pagination?.totalPages ?? 1
@@ -64,21 +75,30 @@ export function useBookingsPage() {
   const setStatus = (next: BookingStatus | '') => { setStatusState(next); reset() }
 
   const stats = useMemo(() => {
-    const confirmed = windowBookings.filter(booking => booking.status === 'CONFIRMED')
-    const unpaid = windowBookings.filter(booking => booking.balanceDue > 0 && booking.status !== 'CANCELLED')
+    const live = windowBookings.filter(booking => booking.status !== 'CANCELLED')
+    const completed = live.filter(booking => booking.status === 'COMPLETED')
+    const upcoming = windowBookings.filter(booking => isUpcoming(booking))
+    const awaiting = upcoming.filter(booking => booking.status === 'PENDING')
+    const paid = windowBookings.filter(booking => collectedOn(booking) > 0)
+    const fullyPaid = paid.filter(booking => booking.paymentStatus === 'PAID')
+    const unpaid = live.filter(booking => booking.balanceDue > 0)
     const show = (next: { tab?: BookingsTab; status?: BookingStatus | ''; payment?: string }) => () => {
       setTabState(next.tab ?? 'All')
       setStatusState(next.status ?? '')
       setPaymentFilter(next.payment ?? '')
       setPage(1)
     }
+    const isShowing = (next: { tab?: BookingsTab; status?: BookingStatus | ''; payment?: string }) =>
+      tab === (next.tab ?? 'All') && status === (next.status ?? '') && paymentFilter === (next.payment ?? '')
+    const card = (label: string, value: string, note: string, icon: typeof Wallet, tone: StatTone, filter: { tab?: BookingsTab; status?: BookingStatus | ''; payment?: string } | null) =>
+      ({ label, value, note, icon, tone, onClick: filter ? show(filter) : show({}), active: filter ? isShowing(filter) : false })
     return [
-      { label: 'Upcoming', value: String(windowBookings.filter(booking => isUpcoming(booking)).length).padStart(2, '0'), note: 'Next 30 days', icon: CalendarCheck, color: 'bg-[#D8FF72]', onClick: show({ tab: 'Upcoming' }) },
-      { label: 'Confirmed', value: String(confirmed.length).padStart(2, '0'), note: `${money(confirmed.reduce((sum, booking) => sum + booking.amount, 0))} booked`, icon: CheckCircle2, color: 'bg-[#CDEEDC]', onClick: show({ status: 'CONFIRMED' }) },
-      { label: 'Needs approval', value: String(windowBookings.filter(booking => booking.status === 'PENDING').length).padStart(2, '0'), note: 'Review pending requests', icon: Clock3, color: 'bg-[#FFE1AD]', onClick: show({ status: 'PENDING' }) },
-      { label: 'Unpaid balance', value: moneyCompact(unpaid.reduce((sum, booking) => sum + booking.balanceDue, 0)), note: `Across ${unpaid.length} ${unpaid.length === 1 ? 'booking' : 'bookings'}`, icon: Wallet, color: 'bg-[#DED9FF]', onClick: show({ payment: 'UNPAID' }) },
+      card('Bookings', String(live.length), `${completed.length} completed`, CalendarDays, 'lime', null),
+      card('Upcoming', String(upcoming.length), awaiting.length ? `${awaiting.length} awaiting approval` : 'All confirmed', CalendarCheck, 'mint', { tab: 'Upcoming' }),
+      card('Collected', moneyCompact(paid.reduce((sum, booking) => sum + collectedOn(booking), 0)), `${plural(fullyPaid.length, 'booking')} paid in full`, Banknote, 'peach', { payment: 'PAID' }),
+      card('Balance due', moneyCompact(unpaid.reduce((sum, booking) => sum + booking.balanceDue, 0)), `Across ${plural(unpaid.length, 'booking')}`, Wallet, 'lilac', { payment: 'UNPAID' }),
     ]
-  }, [windowBookings, money, moneyCompact])
+  }, [windowBookings, moneyCompact, tab, status, paymentFilter])
 
   const summary = list.data?.summary ?? statsQuery.data?.summary
   const pendingRefunds = summary?.pendingRefunds ?? 0
@@ -88,8 +108,10 @@ export function useBookingsPage() {
   return {
     tab,
     setTab,
+    tabs: canManageBookings ? BOOKING_TABS : BOOKING_TABS.filter(option => option.value !== 'Refunds'),
     stats,
     statsLoading: statsQuery.isLoading,
+    statsNote: datesSet ? 'In the selected dates' : 'This week and the next 30 days',
     rows,
     page: Math.min(page, totalPages),
     totalPages,
@@ -129,6 +151,7 @@ export function useBookingsPage() {
       isActive: Boolean(searchInput || paymentFilter),
     },
     openNewBooking,
+    canAddBooking,
     openBooking,
     isExporting,
     exportCsv: async () => {

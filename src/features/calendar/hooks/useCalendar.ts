@@ -51,7 +51,7 @@ const assignLanes = <T extends { start: number; end: number; lane?: number; lane
 
 /** Week view: open days as columns, opening hours as rows, bookings and blocked time on top. */
 export function useCalendar() {
-  const { openNewBooking, openBooking } = useBookingActions()
+  const { openNewBooking, openBooking, canAddBooking } = useBookingActions()
   const [params] = useSearchParams()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(params.get('date') ? fromIsoDate(params.get('date') as string) : new Date()))
   const [selectedDay, setSelectedDay] = useState(() => params.get('date') ?? todayIso())
@@ -113,6 +113,7 @@ export function useCalendar() {
 
   return {
     openNewBooking,
+    canAddBooking,
     openBooking,
     days,
     hours,

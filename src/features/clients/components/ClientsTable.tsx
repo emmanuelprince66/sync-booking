@@ -9,7 +9,8 @@ import { cn } from '@/lib/cn'
 import { clientPath } from '@/routes/paths'
 import type { ClientRow } from '../utils'
 
-type RowActions = { onView: (client: Customer) => void; onEdit: (client: Customer) => void; onDelete: (client: Customer) => void }
+/** Leave out onEdit / onDelete for a role that can only view clients. */
+type RowActions = { onView: (client: Customer) => void; onEdit?: (client: Customer) => void; onDelete?: (client: Customer) => void }
 
 function StatusPill({ row }: { row: ClientRow }) {
   if (!row.status) return <span className="text-xs font-semibold text-[#9AABA4]">—</span>
@@ -28,8 +29,8 @@ function ClientName({ row }: { row: ClientRow }) {
 
 const menu = (row: ClientRow, actions: RowActions) => <ActionMenu label={`Actions for ${row.client.name}`} items={[
   { label: 'View client', icon: <Eye size={14}/>, onSelect: () => actions.onView(row.client) },
-  { label: 'Edit client', icon: <Pencil size={14}/>, onSelect: () => actions.onEdit(row.client) },
-  { label: 'Delete client', icon: <Trash2 size={14}/>, danger: true, onSelect: () => actions.onDelete(row.client) },
+  ...(actions.onEdit ? [{ label: 'Edit client', icon: <Pencil size={14}/>, onSelect: () => actions.onEdit?.(row.client) }] : []),
+  ...(actions.onDelete ? [{ label: 'Delete client', icon: <Trash2 size={14}/>, danger: true, onSelect: () => actions.onDelete?.(row.client) }] : []),
 ]}/>
 
 const column = createColumnHelper<ClientRow>()

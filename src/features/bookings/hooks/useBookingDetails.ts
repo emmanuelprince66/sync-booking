@@ -5,7 +5,7 @@ import { useBooking, useUpdateBooking } from '@/api/bookings'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
 import { durationShort, relativeDayLabel } from '@/lib/dates'
 import { initials } from '@/lib/format'
-import { useAuthStore } from '@/stores/auth-store'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useUiStore } from '@/stores/ui-store'
 import { serviceInitialsColor } from '../utils'
 
@@ -13,19 +13,20 @@ export type BookingDialog = 'checkout' | 'reschedule' | 'cancel' | 'refund' | 'r
 
 const humanizeOption = (option: string) => ({ FULL_PAYMENT: 'Online · Full payment', DEPOSIT: 'Online · Deposit', PAY_AT_BUSINESS: 'Pay at venue' } as Record<string, string>)[option] ?? ''
 
-/** Booking details drawer: the booking, its permissions (sink's role rules) and its actions. */
+/** Booking details drawer: the booking, what this role may do with it, and its actions. */
 export function useBookingDetails() {
   const id = useUiStore(state => state.selectedBookingId)
   const setId = useUiStore(state => state.setSelectedBookingId)
-  const role = useAuthStore(state => state.user?.role)
+  const permissions = usePermissions()
   const money = useFormatMoney()
   const query = useBooking(id)
   const update = useUpdateBooking()
   const [dialog, setDialog] = useState<BookingDialog>(null)
 
   const booking = query.data ?? null
-  const canManageSettings = !role || role === 'OWNER' || role === 'ADMIN-ATTENDANT'
-  const canUpdateProgress = canManageSettings || role === 'ATTENDANT'
+  // Super admins run every booking; an Attendant checks in, completes and takes payment on their own only.
+  const canManageSettings = permissions.canManageBookings
+  const canUpdateProgress = canManageSettings || (Boolean(booking) && booking?.staffId === permissions.staffScopeId)
   const canManage = Boolean(booking) && booking?.status !== 'CANCELLED' && booking?.status !== 'COMPLETED'
   const inProgress = booking?.status === 'IN_PROGRESS'
   const hasBalance = (booking?.balanceDue ?? 0) > 0

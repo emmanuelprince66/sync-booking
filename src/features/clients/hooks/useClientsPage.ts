@@ -4,6 +4,7 @@ import { CUSTOMER_STATUS_FILTERS, CUSTOMERS_PAGE_SIZE, useCustomers, type Custom
 import type { DateRange } from '@/components/ui/DateRangeFilter'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFormatMoney, useFormatMoneyCompact } from '@/hooks/useFormatMoney'
+import { usePermissions } from '@/hooks/usePermissions'
 import { downloadCsv } from '@/lib/csv'
 import { toIsoDate } from '@/lib/dates'
 import { clientPath } from '@/routes/paths'
@@ -14,6 +15,7 @@ export type ClientDialog = { mode: 'add' } | { mode: 'edit'; client: Customer } 
 
 /** Clients: server-side search, status and date filters, pages, add, edit and delete (sink's customer list). */
 export function useClientsPage() {
+  const { canAddClients, canEditClients, canDeleteClients, canExportClients } = usePermissions()
   const navigate = useNavigate()
   const money = useFormatMoney()
   const compact = useFormatMoneyCompact()
@@ -33,6 +35,8 @@ export function useClientsPage() {
   const summary = query.data?.summary
 
   return {
+    /** sink Customers / Contact: customers:create, customers:edit, customers:delete (lib/access-map). */
+    can: { add: canAddClients, edit: canEditClients, delete: canDeleteClients, export: canExportClients },
     searchInput,
     setSearch: (value: string) => { setSearchInput(value); setPage(1) },
     status,

@@ -16,51 +16,48 @@ import { sample } from './sample-data'
  *  PATCH  business/edit_attendant/{id}/             { role, set_permissions? }  (role and permissions only stick here)
  *  DELETE business/single_attendant/{id}/
  *  POST   business/single_attendant/business/{id}/  { business_ids: [...] }  (the full set of branches they work at)
- *  GET    business/attendant_permissions/{id}/      → { permissions_matrix, ...flags }
- *  GET    business/role_permission_defaults/        → { modules, role_defaults }
  *
- * `set_permissions` is `{ permissions_matrix }`, sent only when it differs from the role's defaults
- * (leaving it out makes the backend apply the role's defaults).
+ * CLIQBOOK offers two roles only, with the backend's default permissions for each: `set_permissions`
+ * is never sent, so the backend applies the role's defaults whenever the role is set.
  */
 
-/** Sink's seven staff roles, in sink's order. */
-export const ATTENDANT_ROLES = [
-  { value: 'ATTENDANT', label: 'Attendant' },
-  { value: 'MANAGER', label: 'Manager' },
-  { value: 'ADMIN-ATTENDANT', label: 'Admin Attendant' },
-  { value: 'PHARMACIST', label: 'Pharmacist' },
-  { value: 'ACCOUNTANT', label: 'Accountant' },
-  { value: 'INVENTORY-MANAGER', label: 'Inventory Manager' },
-  { value: 'PRODUCTION-MANAGER', label: 'Production Manager' },
+/**
+ * The two roles CLIQBOOK hands out. Super admin is the backend's ADMIN-ATTENDANT (sink's
+ * "Admin Attendant"): everything the owner can do. Attendant works on their own bookings.
+ */
+export const TEAM_ROLES = [
+  { value: 'ATTENDANT', label: 'Attendant', hint: 'Their own bookings and service history, and the wallet’s transactions' },
+  { value: 'ADMIN-ATTENDANT', label: 'Super admin', hint: 'Everything, like the owner: setup, services, wallet and every booking' },
 ] as const
 
-export type AttendantRole = typeof ATTENDANT_ROLES[number]['value']
-export const ATTENDANT_ROLE_VALUES = ATTENDANT_ROLES.map(role => role.value) as [AttendantRole, ...AttendantRole[]]
+export type TeamRole = typeof TEAM_ROLES[number]['value']
+export const TEAM_ROLE_VALUES = TEAM_ROLES.map(role => role.value) as [TeamRole, ...TeamRole[]]
+export const isTeamRole = (role: string): role is TeamRole => (TEAM_ROLE_VALUES as string[]).includes(role)
 
-const ROLE_LABELS: Record<string, string> = { OWNER: 'Owner', ...Object.fromEntries(ATTENDANT_ROLES.map(role => [role.value, role.label])) }
+/** Every role the backend may return, so staff given an older sink role still read correctly. */
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: 'Owner',
+  'ADMIN-ATTENDANT': 'Super admin',
+  ATTENDANT: 'Attendant',
+  MANAGER: 'Manager',
+  PHARMACIST: 'Pharmacist',
+  ACCOUNTANT: 'Accountant',
+  'INVENTORY-MANAGER': 'Inventory Manager',
+  'PRODUCTION-MANAGER': 'Production Manager',
+}
 export const roleLabel = (role: string) => ROLE_LABELS[role] ?? 'Team member'
 
 export type AttendantBusiness = { id: string; name: string }
 export type Attendant = { id: string; name: string; role: string; roleLabel: string; phone: string; isActive: boolean; businesses: AttendantBusiness[] }
 export type AttendantDetail = { id: string; firstname: string; lastname: string; phone: string; role: string }
 
-/** What a staff member can do: module → the actions switched on, e.g. { sales: ['view', 'create'] }. */
-export type PermissionsMatrix = Record<string, string[]>
-export type RolePermissionDefaults = { modules: PermissionsMatrix; role_defaults: Record<string, PermissionsMatrix> }
-
 export type AttendantInput = { firstname: string; lastname: string; phone: string; role: string }
-/** Add/edit payload extras, worked out by the permissions checklist. */
-export type PermissionsSave = {
-  /** Full replacement to send, or none to keep or re-apply the role's defaults. */
-  setPermissions?: { permissions_matrix: PermissionsMatrix }
-  /** The saved permissions couldn't be read: save the details, leave the permissions as they are. */
-  keepSaved?: boolean
+export type EditOptions = {
+  /** The role is unchanged: save the details only, so permissions the backend already holds stay as they are. */
+  keepRole?: boolean
 }
 
 // ─── Readers ────────────────────────────────────────────────────────────────
-
-export const isMatrix = (value: unknown): value is PermissionsMatrix =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.values(value as object).every(Array.isArray)
 
 const unwrap = (value: unknown) => {
   const record = asRecord(value)
@@ -96,20 +93,6 @@ const mapDetail = (value: unknown): AttendantDetail => {
   }
 }
 
-/** role_permission_defaults through however many { data } wrappers. */
-export const readRoleDefaults = (body: unknown): RolePermissionDefaults | null => {
-  const record = asRecord(body)
-  const payload = record.modules ? record : unwrap(body)
-  return isMatrix(payload.modules) && payload.role_defaults ? (payload as unknown as RolePermissionDefaults) : null
-}
-
-/** A staff member's saved matrix from attendant_permissions, if it has one. */
-export const readSavedMatrix = (body: unknown): PermissionsMatrix | null => {
-  const payload = unwrap(body)
-  const matrix = asRecord(payload.permissions).permissions_matrix ?? payload.permissions_matrix
-  return isMatrix(matrix) ? matrix : null
-}
-
 const SKIPPED_ERROR_KEYS = new Set(['message', 'error', 'detail', 'code', 'status', 'success', 'data'])
 
 /**
@@ -134,38 +117,13 @@ export const staffErrorMessage = (error: unknown, fallback: string) => {
 
 // ─── Sample data (VITE_AUTH_MODE=mock) ──────────────────────────────────────
 
-const MOCK_MODULES: PermissionsMatrix = {
-  dashboard: ['view'],
-  reports: ['view'],
-  bookings: ['view', 'create', 'edit', 'cancel'],
-  customers: ['view', 'create', 'edit'],
-  products: ['view', 'edit', 'sell_watchlist'],
-  sales: ['view', 'create', 'discount', 'reverse', 'presale'],
-  orders: ['view'],
-  inventory: ['view', 'restock', 'transfer', 'manage_branches'],
-  expenses: ['view', 'create', 'transfer', 'approve'],
-  banking: ['view', 'manage'],
-  staff: ['view', 'invite', 'manage_roles'],
-  settings: ['view', 'manage'],
-}
-const allOf = (modules: string[]) => Object.fromEntries(modules.map(module => [module, [...MOCK_MODULES[module]]]))
-const MOCK_ROLE_DEFAULTS: Record<string, PermissionsMatrix> = {
-  ATTENDANT: { dashboard: ['view'], bookings: ['view', 'create'], customers: ['view', 'create'], sales: ['view', 'create'] },
-  MANAGER: allOf(['dashboard', 'reports', 'bookings', 'customers', 'products', 'sales', 'orders', 'inventory', 'staff']),
-  'ADMIN-ATTENDANT': allOf(Object.keys(MOCK_MODULES).filter(module => module !== 'banking')),
-  PHARMACIST: { dashboard: ['view'], products: ['view', 'sell_watchlist'], sales: ['view', 'create'], customers: ['view'] },
-  ACCOUNTANT: { dashboard: ['view'], reports: ['view'], sales: ['view'], expenses: ['view', 'create', 'approve'], banking: ['view'] },
-  'INVENTORY-MANAGER': { dashboard: ['view'], products: ['view', 'edit'], inventory: ['view', 'restock', 'transfer', 'manage_branches'] },
-  'PRODUCTION-MANAGER': { dashboard: ['view'], products: ['view'], inventory: ['view', 'restock'] },
-}
-
-type MockStaff = { firstname: string; lastname: string; businessIds: string[]; matrix: PermissionsMatrix | null }
+type MockStaff = { firstname: string; lastname: string; businessIds: string[] }
 const mockStaff = new Map<string, MockStaff>()
 const mockStaffOf = (attendant: Pick<Attendant, 'id' | 'name'>): MockStaff => {
   let found = mockStaff.get(attendant.id)
   if (!found) {
     const [firstname = '', ...rest] = attendant.name.split(/\s+/)
-    found = { firstname, lastname: rest.join(' '), businessIds: attendant.id === 'sample-staff-maya' ? ['mock-business-1', 'mock-business-2'] : ['mock-business-1'], matrix: null }
+    found = { firstname, lastname: rest.join(' '), businessIds: attendant.id === 'sample-staff-maya' ? ['mock-business-1', 'mock-business-2'] : ['mock-business-1'] }
     mockStaff.set(attendant.id, found)
   }
   return found
@@ -209,50 +167,37 @@ const getAttendant = async (id: string): Promise<AttendantDetail> => {
   return mapDetail(await apiRequest<unknown>(`business/single_attendant/${id}/`))
 }
 
-const getRoleDefaults = async () => {
-  if (!isLive()) return mockDelay<RolePermissionDefaults>({ modules: MOCK_MODULES, role_defaults: MOCK_ROLE_DEFAULTS })
-  const defaults = readRoleDefaults(await apiRequest<unknown>('business/role_permission_defaults/'))
-  if (!defaults) throw new Error('Could not load role permissions')
-  return defaults
-}
-
-const getSavedPermissions = async (id: string) => {
-  if (!isLive()) return mockDelay(mockStaffOf(findMock(id)).matrix)
-  return readSavedMatrix(await apiRequest<unknown>(`business/attendant_permissions/${id}/`))
-}
-
-const permissionsBody = (save: PermissionsSave) => (save.setPermissions ? { set_permissions: save.setPermissions } : {})
-
-const addAttendant = async (businessId: string, input: AttendantInput, save: PermissionsSave) => {
+const addAttendant = async (businessId: string, input: AttendantInput) => {
   if (!isLive()) {
     assertPhoneFree(input.phone)
     const id = `sample-staff-${Date.now()}`
     const name = `${input.firstname} ${input.lastname}`.trim()
     sample.attendants = [...sample.attendants, { id, name, role: input.role, roleLabel: roleLabel(input.role), phone: input.phone, isActive: true, businesses: [] }]
     // Mock queries are keyed on 'mock', so the business picked on /select-business is read from the store.
-    mockStaff.set(id, { firstname: input.firstname, lastname: input.lastname, businessIds: [useBusinessStore.getState().businessId || 'mock-business-1'], matrix: save.setPermissions?.permissions_matrix ?? null })
+    mockStaff.set(id, { firstname: input.firstname, lastname: input.lastname, businessIds: [useBusinessStore.getState().businessId || 'mock-business-1'] })
     return mockDelay(null, 400)
   }
-  return apiRequest<unknown>(`business/add_attendant/${businessId}/`, { method: 'POST', body: { ...input, ...permissionsBody(save) } })
+  return apiRequest<unknown>(`business/add_attendant/${businessId}/`, { method: 'POST', body: input })
 }
 
-/** As sink: details on single_attendant, then role + permissions on edit_attendant unless the saved permissions are being kept. */
-const editAttendant = async (id: string, input: AttendantInput, save: PermissionsSave) => {
+/** As sink: details on single_attendant, then the role on edit_attendant (where it sticks) when it changed. */
+const editAttendant = async (id: string, input: AttendantInput, { keepRole = false }: EditOptions) => {
   if (!isLive()) {
     assertPhoneFree(input.phone, id)
     const attendant = findMock(id)
     const staff = mockStaffOf(attendant)
     const roleChanged = attendant.role !== input.role
     sample.attendants = sample.attendants.map(item => item.id === id ? { ...item, name: `${input.firstname} ${input.lastname}`.trim(), phone: input.phone, role: input.role, roleLabel: roleChanged ? roleLabel(input.role) : item.roleLabel } : item)
-    mockStaff.set(id, { ...staff, firstname: input.firstname, lastname: input.lastname, matrix: save.keepSaved && !save.setPermissions ? staff.matrix : (save.setPermissions?.permissions_matrix ?? null) })
+    mockStaff.set(id, { ...staff, firstname: input.firstname, lastname: input.lastname })
     return mockDelay(null, 400)
   }
-  const details = await apiRequest<unknown>(`business/single_attendant/${id}/`, { method: 'PATCH', body: { ...input, ...permissionsBody(save) } })
-  if (save.keepSaved && !save.setPermissions) return details
+  const details = await apiRequest<unknown>(`business/single_attendant/${id}/`, { method: 'PATCH', body: input })
+  if (keepRole) return details
   try {
-    await apiRequest<unknown>(`business/edit_attendant/${id}/`, { method: 'PATCH', body: { role: input.role, ...permissionsBody(save) } })
+    // No set_permissions: the backend applies the new role's default permissions.
+    await apiRequest<unknown>(`business/edit_attendant/${id}/`, { method: 'PATCH', body: { role: input.role } })
   } catch (error) {
-    throw new ApiError(staffErrorMessage(error, 'Details saved, but the role and permissions couldn’t be updated'), error instanceof ApiError ? error.status : 500, error instanceof ApiError ? error.data : null)
+    throw new ApiError(staffErrorMessage(error, 'Details saved, but the role couldn’t be updated'), error instanceof ApiError ? error.status : 500, error instanceof ApiError ? error.data : null)
   }
   return details
 }
@@ -277,8 +222,6 @@ const setAttendantBusinesses = async (id: string, businessIds: string[]) => {
 }
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
-
-const ROLE_DEFAULTS_STALE = 10 * 60 * 1000
 
 /** The current business's staff. Bookings and services pick from this list. */
 export const useAttendants = () => {
@@ -314,17 +257,11 @@ export const useBranchStaffCounts = (businessIds: string[]) => {
 export const useAttendant = (id: string) =>
   useQuery({ queryKey: [...queryKeys.attendants, 'single', id], queryFn: () => getAttendant(id), enabled: Boolean(id) })
 
-export const useAttendantPermissions = (id: string) =>
-  useQuery({ queryKey: [...queryKeys.attendants, 'permissions', id], queryFn: () => getSavedPermissions(id), enabled: Boolean(id) })
-
-export const useRolePermissionDefaults = () =>
-  useQuery({ queryKey: queryKeys.rolePermissionDefaults, queryFn: getRoleDefaults, staleTime: ROLE_DEFAULTS_STALE })
-
 export const useAddAttendant = () => {
   const { scope } = useBusinessScope()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ input, save = {} }: { input: AttendantInput; save?: PermissionsSave }) => addAttendant(scope, input, save),
+    mutationFn: ({ input }: { input: AttendantInput }) => addAttendant(scope, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.attendants }),
   })
 }
@@ -332,7 +269,7 @@ export const useAddAttendant = () => {
 export const useEditAttendant = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, input, save = {} }: { id: string; input: AttendantInput; save?: PermissionsSave }) => editAttendant(id, input, save),
+    mutationFn: ({ id, input, options = {} }: { id: string; input: AttendantInput; options?: EditOptions }) => editAttendant(id, input, options),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.attendants }),
   })
 }

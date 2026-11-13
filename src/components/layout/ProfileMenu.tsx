@@ -36,8 +36,8 @@ export function ProfileMenu() {
         </div>
       </div>
       <div className="flex flex-col gap-0.5 py-1">
-        {menu.isOwner && <Item icon={Building2} label="Business settings" onClick={menu.goToSettings}/>}
-        {menu.isOwner && <Item icon={ShieldCheck} label="KYC verification" onClick={menu.goToKyc} badge={menu.kycBadge}/>}
+        {menu.canManageBusiness && <Item icon={Building2} label="Business settings" onClick={menu.goToSettings}/>}
+        {menu.canManageBusiness && <Item icon={ShieldCheck} label="KYC verification" onClick={menu.goToKyc} badge={menu.kycBadge}/>}
         <Item icon={Repeat2} label="Switch business" onClick={menu.switchBusiness}/>
         <Item icon={CircleHelp} label="Help & support" onClick={menu.openHelp}/>
       </div>

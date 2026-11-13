@@ -236,9 +236,9 @@ const getNewThisMonth = async (businessId: string) => {
   return num(asRecord(response.data ?? response).new_this_month)
 }
 
-export const useNewClientsThisMonth = () => {
+export const useNewClientsThisMonth = (options: { enabled?: boolean } = {}) => {
   const { scope, enabled } = useBusinessScope()
-  return useQuery({ queryKey: [...queryKeys.customerOverview, scope], queryFn: () => getNewThisMonth(scope), enabled })
+  return useQuery({ queryKey: [...queryKeys.customerOverview, scope], queryFn: () => getNewThisMonth(scope), enabled: enabled && options.enabled !== false })
 }
 
 // ─── One client (sink's customer profile) ───────────────────────────────────

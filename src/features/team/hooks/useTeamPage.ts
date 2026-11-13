@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ATTENDANT_ROLES, staffErrorMessage, useAttendants, useRemoveAttendant, type Attendant } from '@/api/attendants'
+import { TEAM_ROLES, roleLabel, staffErrorMessage, useAttendants, useRemoveAttendant, type Attendant } from '@/api/attendants'
 import { useBusinesses } from '@/api/business'
 import { teamColor } from '@/features/bookings/utils'
 import { initials } from '@/lib/format'
@@ -58,7 +58,8 @@ export function useTeamPage() {
     search,
     setSearch: (value: string) => { setSearchValue(value); setPage(1) },
     role,
-    roleOptions: [{ value: '', label: 'All roles' }, { value: 'OWNER', label: 'Owner' }, ...ATTENDANT_ROLES],
+    /** Owner, the two roles on offer, and any older role someone still has. */
+    roleOptions: [{ value: '', label: 'All roles' }, ...['OWNER', ...TEAM_ROLES.map(option => option.value), ...all.map(attendant => attendant.role)].filter((value, index, list) => list.indexOf(value) === index).map(value => ({ value, label: roleLabel(value) }))],
     setRole: (value: string) => { setRoleValue(value); setPage(1) },
     rows,
     total: all.length,

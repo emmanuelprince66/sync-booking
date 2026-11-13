@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, TimerOff } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/Button'
+import { ColorStatCard } from '@/components/ui/ColorStatCard'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -34,19 +35,11 @@ export default function OverviewPage() {
   return <div className="mx-auto flex max-w-[1192px] flex-col gap-6 p-5 md:p-8">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0"><p className="mb-1 text-sm font-bold text-[#6F877B]">{page.dateLabel}</p><h1 className="text-3xl font-black tracking-[-0.035em] text-[#173A2E]">Overview</h1><p className="mt-1 text-sm font-semibold text-[#71867C]">{page.tagline}</p></div>
-      <Button onClick={page.openNewBooking} className="shrink-0"><Plus size={17}/> New booking</Button>
+      {page.canAddBooking && <Button onClick={page.openNewBooking} className="shrink-0"><Plus size={17}/> New booking</Button>}
     </div>
 
-    <section className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {page.cards.map(card => {
-        const CardIcon = card.icon
-        return <div key={card.label} className={cn(card.color, 'min-h-[154px] rounded-2xl p-5 transition hover:-translate-y-0.5')}>
-          <div className="flex items-center justify-between gap-2"><p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[#476057]">{card.label}</p><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/60 text-[#173A2E]"><CardIcon size={16}/></span></div>
-          {card.isLoading
-            ? <><Skeleton className="mt-5 h-[34px] w-24 bg-white/60"/><Skeleton className="mt-2 h-3 w-28 bg-white/60"/></>
-            : <><p className="mt-5 text-[34px] font-black leading-none tracking-[-0.045em] text-[#173A2E]">{card.value}</p><p className="mt-2 text-xs font-bold text-[#587067]">{card.note}</p></>}
-        </div>
-      })}
+    <section aria-label="Today at a glance" className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {page.cards.map(card => <ColorStatCard key={card.label} size="lg" label={card.label} value={card.value} note={card.note} icon={card.icon} tone={card.tone} loading={card.isLoading}/>)}
     </section>
 
     <section className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -63,7 +56,7 @@ export default function OverviewPage() {
           : page.listLoading
             ? <div className="px-5 md:px-6"><BookingRowsSkeleton/></div>
             : page.list.length === 0
-              ? <EmptyState icon={<CalendarDays size={20}/>} title={page.listEmptyTitle} text={page.listEmptyText} action={<Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button>}/>
+              ? <EmptyState icon={<CalendarDays size={20}/>} title={page.listEmptyTitle} text={page.listEmptyText} action={page.canAddBooking ? <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button> : undefined}/>
               : <div className="px-5 md:px-6">{page.list.map(booking => <BookingRow key={booking.id} booking={booking} onView={page.openBooking}/>)}</div>}
       </div>
       <div className="flex min-w-0 flex-col gap-4">
@@ -73,13 +66,13 @@ export default function OverviewPage() {
           <ArrowRight size={17} className="shrink-0 text-[#173A2E]"/>
         </Link>
         <MiniCalendar/>
-        <div className="relative overflow-hidden rounded-2xl bg-[#173A2E] p-5 text-white">
+        {page.showBlockTime && <div className="relative overflow-hidden rounded-2xl bg-[#173A2E] p-5 text-white">
           <div className="absolute -right-8 -top-9 h-28 w-28 rounded-full border-[22px] border-[#D8FF72]/10"/>
           <div className="relative flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#D8FF72] text-[#173A2E]"><TimerOff size={19}/></span>
             <div><p className="text-sm font-black">Need some breathing room?</p><p className="mt-1 text-xs font-semibold leading-relaxed text-white/55">Block personal time so clients can only book when you are truly available.</p><Link to={servicesPath('availability')} className="mt-3 inline-block text-xs font-black text-[#D8FF72]">Block time →</Link></div>
           </div>
-        </div>
+        </div>}
       </div>
     </section>
   </div>

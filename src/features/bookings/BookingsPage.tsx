@@ -1,30 +1,26 @@
 import { CalendarDays, FileDown, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { ColorStatCard } from '@/components/ui/ColorStatCard'
 import { SearchInput } from '@/components/ui/common'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { EmptyState, ErrorState, PageTitle, PillTabs } from '@/components/ui/misc'
 import { OptionSelect } from '@/components/ui/OptionSelect'
 import { Pagination } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
-import { Skeleton } from '@/components/ui/Skeleton'
 import { useDismissRoot } from '@/hooks/useDismiss'
 import { cn } from '@/lib/cn'
 import { BookingRow, BookingRowsSkeleton } from './components/BookingRow'
-import { BOOKING_TABS, REFUND_FILTERS } from './constants'
+import { REFUND_FILTERS } from './constants'
 import { useBookingsPage, type BookingsPageModel } from './hooks/useBookingsPage'
 import { PAYMENT_FILTER_OPTIONS } from './utils'
 
 function StatCards({ page }: { page: BookingsPageModel }) {
-  return <div className="mb-5 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    {page.stats.map(card => {
-      const StatIcon = card.icon
-      return <button key={card.label} type="button" onClick={card.onClick} className={cn(card.color, 'rounded-2xl p-4 text-left transition hover:-translate-y-0.5')}>
-        <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#587067]">{card.label}</span><StatIcon size={16} className="text-[#173A2E]"/></div>
-        {page.statsLoading ? <Skeleton className="mt-3 h-8 w-16 bg-white/60"/> : <p className="mt-3 text-2xl font-black text-[#173A2E]">{card.value}</p>}
-        <p className="mt-1 truncate text-[11px] font-bold text-[#668076]">{page.statsLoading ? ' ' : card.note}</p>
-      </button>
-    })}
-  </div>
+  return <section aria-label="Booking totals" className="mb-5">
+    <p className="mb-2 text-[11px] font-bold text-[#5F756B]">{page.statsNote}</p>
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      {page.stats.map(card => <ColorStatCard key={card.label} label={card.label} value={card.value} note={card.note} icon={card.icon} tone={card.tone} loading={page.statsLoading} active={card.active} onClick={card.onClick}/>)}
+    </div>
+  </section>
 }
 
 function FilterMenu({ page }: { page: BookingsPageModel }) {
@@ -46,13 +42,13 @@ export default function BookingsPage() {
   return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
     <PageTitle title="Bookings" subtitle="Every appointment, neatly in place." actions={<>
       <Button variant="outline" onClick={() => void page.exportCsv()} loading={page.isExporting} className="text-foreground"><FileDown size={16}/> Export</Button>
-      <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button>
+      {page.canAddBooking && <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button>}
     </>}/>
     <StatCards page={page}/>
     <div className="rounded-2xl border border-border bg-white">
       <div className="flex flex-col gap-3 border-b border-border p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <PillTabs value={page.tab} onChange={page.setTab} options={BOOKING_TABS} className="min-w-0 self-start"/>
+          <PillTabs value={page.tab} onChange={page.setTab} options={page.tabs} className="min-w-0 self-start"/>
           {!page.isRefunds && <div className="relative flex shrink-0 items-center gap-2">
             <DateRangeFilter value={page.filter.dates} onChange={page.filter.setDates} placeholder="Date range" triggerClassName="h-9 rounded-lg"/>
             <FilterMenu page={page}/>
@@ -72,7 +68,7 @@ export default function BookingsPage() {
         : page.isLoading
           ? <div className="px-5 md:px-6"><BookingRowsSkeleton rows={Math.min(page.pageSize, 6)}/></div>
           : page.isEmpty
-            ? <EmptyState icon={<CalendarDays size={20}/>} title={page.isFiltered ? 'No bookings match this view' : page.isRefunds ? 'No refunds here' : 'No bookings yet'} text={page.isFiltered ? 'Try another search or status, or widen the date range.' : page.isRefunds ? 'Refunds from cancelled bookings will queue up here.' : 'Add your first booking or share your booking page.'} action={!page.isRefunds && !page.isFiltered ? <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button> : undefined}/>
+            ? <EmptyState icon={<CalendarDays size={20}/>} title={page.isFiltered ? 'No bookings match this view' : page.isRefunds ? 'No refunds here' : 'No bookings yet'} text={page.isFiltered ? 'Try another search or status, or widen the date range.' : page.isRefunds ? 'Refunds from cancelled bookings will queue up here.' : 'Add your first booking or share your booking page.'} action={!page.isRefunds && !page.isFiltered && page.canAddBooking ? <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button> : undefined}/>
             : <div aria-busy={page.isFetching} className={cn('px-5 transition-opacity md:px-6', page.isFetching && 'opacity-60')}>{page.rows.map(booking => <BookingRow key={booking.id} booking={booking} onView={page.openBooking}/>)}</div>}
       {!page.isError && !page.isEmpty && <Pagination currentPage={page.page} totalPages={page.totalPages} onPageChange={page.setPage} pageSize={page.pageSize} onPageSizeChange={page.setPageSize} pageSizeOptions={page.pageSizeOptions}/>}
     </div>

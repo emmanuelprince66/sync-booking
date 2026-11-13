@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiRequest, mockDelay } from '@/lib/api-client'
 import { addDays, normalizeTime, startOfWeek, toIsoDate } from '@/lib/dates'
+import { useStaffScopeId } from '@/hooks/usePermissions'
 import { useBusinessScope } from './business'
 import { asRecord, isLive, listFrom, num, str } from './http'
 import { queryKeys } from './query-keys'
@@ -12,6 +13,8 @@ import { sample } from './sample-data'
  *        → { summary, selected_date, schedule: Booking[], pagination: { count, page, limit, total_pages } | null }
  *        page/limit are opt-in: without them `schedule` is the whole range and pagination is null.
  *        summary always covers the whole range.
+ *        `staff_id` narrows the list to one attendee's bookings (sent for Attendant logins; the
+ *        list is also filtered here, in case the backend ignores it).
  *  POST  service/bookings/business/{business_id}/
  *  GET   service/bookings/{booking_id}/
  *  PATCH service/bookings/{booking_id}/              { status } or { new_date, new_start_time } or { staff_id } (null unassigns;
@@ -87,8 +90,8 @@ export const mapBooking = (value: unknown): Booking => {
     balanceDue: num(record.balance_due),
     refundableAmount: num(record.refundable_amount ?? record.amount_paid),
     paymentOption: str(record.payment_option),
-    paymentStatus: (str(record.payment_status) || 'UNPAID') as PaymentStatus,
-    status: (str(record.booking_status) || str(record.status) || 'CONFIRMED') as BookingStatus,
+    paymentStatus: (str(record.payment_status).toUpperCase() || 'UNPAID') as PaymentStatus,
+    status: (str(record.booking_status).toUpperCase() || str(record.status).toUpperCase() || 'CONFIRMED') as BookingStatus,
     source: str(record.source) === 'storefront' ? 'storefront' : 'staff',
     notes: str(record.notes),
     cancellationReason: str(record.cancellation_reason),
@@ -107,6 +110,8 @@ export type BookingsQuery = {
   status?: BookingStatus | ''
   /** Customer name, phone or reference. */
   search?: string
+  /** Only this attendee's bookings. Set by the hooks from the signed-in Attendant, never by screens. */
+  staffId?: string
 }
 
 /** Opt-in server pages for the bookings list. */
@@ -116,18 +121,18 @@ export type BookingsPageResult = BookingsResult & { pagination: BookingsPaginati
 
 const bySchedule = (a: Booking, b: Booking) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`)
 
-const filterMockBookings = ({ startDate, endDate, paymentStatus, status, search }: BookingsQuery) => {
+const filterMockBookings = ({ startDate, endDate, paymentStatus, status, search, staffId }: BookingsQuery) => {
   const matchesPayment = (value: PaymentStatus) => !paymentStatus || (paymentStatus === 'REFUND' ? value === 'REFUND_PENDING' || value === 'REFUNDED' : value === paymentStatus)
   const term = search?.trim().toLowerCase() ?? ''
   const digits = term.replace(/\D/g, '')
   const matchesSearch = (item: Booking) => !term || item.customerName.toLowerCase().includes(term) || item.reference.toLowerCase().includes(term)
     || (digits.length > 0 && item.customerPhone.replace(/\D/g, '').includes(digits))
   return sample.bookings.filter(item => (!startDate || item.date >= startDate) && (!endDate || item.date <= endDate) && matchesPayment(item.paymentStatus)
-    && (!status || item.status === status) && matchesSearch(item)).sort(bySchedule)
+    && (!status || item.status === status) && (!staffId || item.staffId === staffId) && matchesSearch(item)).sort(bySchedule)
 }
 
-const mockSummary = (): BookingsSummary => {
-  const pending = sample.bookings.filter(item => item.paymentStatus === 'REFUND_PENDING')
+const summaryOf = (bookings: Booking[]): BookingsSummary => {
+  const pending = bookings.filter(item => item.paymentStatus === 'REFUND_PENDING')
   return { pendingRefunds: pending.length, pendingRefundsAmount: pending.reduce((sum, item) => sum + item.refundableAmount, 0), unearnedRevenue: 0 }
 }
 
@@ -138,6 +143,7 @@ const bookingsParams = (query: BookingsQuery) => {
   if (query.paymentStatus) params.set('payment_status', query.paymentStatus)
   if (query.status) params.set('status', query.status)
   if (query.search?.trim()) params.set('search', query.search.trim())
+  if (query.staffId) params.set('staff_id', query.staffId)
   return params
 }
 
@@ -148,21 +154,28 @@ const mapSummary = (data: unknown): BookingsSummary => {
 
 /** The whole range in one response: calendar, overview, client history and the sidebar count read this. */
 const getBookings = async (businessId: string, query: BookingsQuery): Promise<BookingsResult> => {
-  if (!isLive()) return mockDelay({ bookings: filterMockBookings(query), summary: mockSummary() })
+  if (!isLive()) return mockDelay({ bookings: filterMockBookings(query), summary: summaryOf(sample.bookings.filter(item => !query.staffId || item.staffId === query.staffId)) })
   const data = payloadOf(await apiRequest<unknown>(`service/bookings/business/${businessId}/?${bookingsParams(query).toString()}`))
-  return { bookings: listFrom(data, ['schedule', 'results', 'bookings']).map(mapBooking).sort(bySchedule), summary: mapSummary(data) }
+  const bookings = listFrom(data, ['schedule', 'results', 'bookings']).map(mapBooking).sort(bySchedule)
+  // The business-wide summary would show an attendant everyone's refunds, so theirs is worked out from their own list.
+  if (query.staffId) {
+    const own = bookings.filter(item => item.staffId === query.staffId)
+    return { bookings: own, summary: summaryOf(own) }
+  }
+  return { bookings, summary: mapSummary(data) }
 }
 
 /** One server page of bookings for the list screen; rows keep the server's order. */
+const pageOf = ({ bookings, summary }: BookingsResult, query: BookingsPageQuery): BookingsPageResult => ({
+  bookings: bookings.slice((query.page - 1) * query.limit, query.page * query.limit),
+  summary,
+  pagination: { count: bookings.length, page: query.page, limit: query.limit, totalPages: Math.max(1, Math.ceil(bookings.length / query.limit)) },
+})
+
 const getBookingsPage = async (businessId: string, query: BookingsPageQuery): Promise<BookingsPageResult> => {
-  if (!isLive()) {
-    const all = filterMockBookings(query)
-    return mockDelay({
-      bookings: all.slice((query.page - 1) * query.limit, query.page * query.limit),
-      summary: mockSummary(),
-      pagination: { count: all.length, page: query.page, limit: query.limit, totalPages: Math.max(1, Math.ceil(all.length / query.limit)) },
-    })
-  }
+  // An attendant's list is filtered here, so it's read whole and paged on the client
+  // (server pages would come back short whenever the backend ignores staff_id).
+  if (!isLive() || query.staffId) return pageOf(await getBookings(businessId, query), query)
   const params = bookingsParams(query)
   params.set('page', String(query.page))
   params.set('limit', String(query.limit))
@@ -178,7 +191,7 @@ const getBookingsPage = async (businessId: string, query: BookingsPageQuery): Pr
 }
 
 const listKey = (scope: string, query: BookingsQuery) =>
-  [...queryKeys.bookings, scope, query.startDate ?? '', query.endDate ?? '', query.paymentStatus ?? '', query.status ?? '', query.search ?? '']
+  [...queryKeys.bookings, scope, query.startDate ?? '', query.endDate ?? '', query.paymentStatus ?? '', query.status ?? '', query.search ?? '', query.staffId ?? '']
 
 /**
  * This week plus the next 30 days. Overview, the sidebar badge, services and the
@@ -189,8 +202,9 @@ export const defaultBookingsRange = () => {
   return { startDate: toIsoDate(startOfWeek(today)), endDate: toIsoDate(addDays(today, 30)) }
 }
 
-export const useBookings = (query: BookingsQuery, options: { enabled?: boolean } = {}) => {
+export const useBookings = (filters: BookingsQuery, options: { enabled?: boolean } = {}) => {
   const { scope, enabled } = useBusinessScope()
+  const query = { ...filters, staffId: useStaffScopeId() }
   return useQuery({
     queryKey: listKey(scope, query),
     queryFn: () => getBookings(scope, query),
@@ -203,8 +217,9 @@ export const useBookings = (query: BookingsQuery, options: { enabled?: boolean }
 export const useDefaultBookings = () => useBookings(defaultBookingsRange())
 
 /** Server-paged bookings for the list screen. Keyed under `bookings`, so every booking write refreshes it. */
-export const usePagedBookings = (query: BookingsPageQuery) => {
+export const usePagedBookings = (filters: BookingsPageQuery) => {
   const { scope, enabled } = useBusinessScope()
+  const query = { ...filters, staffId: useStaffScopeId() }
   return useQuery({
     queryKey: [...queryKeys.bookings, scope, 'page', query],
     queryFn: () => getBookingsPage(scope, query),
@@ -217,8 +232,12 @@ export const usePagedBookings = (query: BookingsPageQuery) => {
 /** Every booking matching a filter in one go (no pages), for the CSV export. */
 export const useFetchAllBookings = () => {
   const { scope } = useBusinessScope()
+  const staffId = useStaffScopeId()
   const queryClient = useQueryClient()
-  return (query: BookingsQuery) => queryClient.fetchQuery({ queryKey: listKey(scope, query), queryFn: () => getBookings(scope, query), staleTime: 30 * 1000 })
+  return (filters: BookingsQuery) => {
+    const query = { ...filters, staffId }
+    return queryClient.fetchQuery({ queryKey: listKey(scope, query), queryFn: () => getBookings(scope, query), staleTime: 30 * 1000 })
+  }
 }
 
 const getBooking = async (id: string) => {

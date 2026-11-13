@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AppLoader } from '@/components/ui/AppLoader'
-import { GuestOnly, RequireAuth, RequireBusiness } from './guards'
+import { GuestOnly, RequireArea, RequireAuth, RequireBusiness } from './guards'
 import { pages } from './pages'
 import { paths } from './paths'
 import { AvailabilityRedirect, BranchDetailRedirect, BranchesRedirect, StorefrontRedirect, TeamRedirect } from './redirects'
@@ -29,22 +29,30 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout/>,
         children: [
+          // Overview is open to every role (a refused page lands there). The rest are decided by the login's
+          // permissions (lib/access-map.ts); what each role sees inside is decided by usePermissions.
           { index: true, element: <OverviewPage/> },
-          { path: paths.calendar, element: <CalendarPage/> },
-          { path: paths.bookings, element: <BookingsPage/> },
-          { path: paths.wallet, element: <WalletPage/> },
-          { path: paths.clients, element: <ClientsPage/> },
-          { path: paths.clientDetail, element: <ClientDetailPage/> },
-          { path: paths.services, element: <ServicesPage/> },
-          { path: paths.serviceCategories, element: <CategoriesPage/> },
-          // Availability is a tab of Services now; Team, Branches and Storefront are tabs of Setup.
+          { element: <RequireArea area="calendar"/>, children: [{ path: paths.calendar, element: <CalendarPage/> }] },
+          { element: <RequireArea area="bookings"/>, children: [{ path: paths.bookings, element: <BookingsPage/> }] },
+          { element: <RequireArea area="wallet"/>, children: [{ path: paths.wallet, element: <WalletPage/> }] },
+          { element: <RequireArea area="clients"/>, children: [{ path: paths.clients, element: <ClientsPage/> }, { path: paths.clientDetail, element: <ClientDetailPage/> }] },
+          { element: <RequireArea area="services"/>, children: [{ path: paths.services, element: <ServicesPage/> }] },
+          // Availability is a tab of Services now (the tab itself is Super admin only).
           { path: paths.availability, element: <AvailabilityRedirect/> },
-          { path: paths.storefront, element: <StorefrontRedirect/> },
-          { path: paths.settings, element: <SettingsPage/> },
-          { path: paths.kyc, element: <KycPage/> },
-          { path: paths.team, element: <TeamRedirect/> },
-          { path: paths.branches, element: <BranchesRedirect/> },
-          { path: paths.branchDetail, element: <BranchDetailRedirect/> },
+          // Refused logins are sent to Overview with a toast.
+          { element: <RequireArea area="categories"/>, children: [{ path: paths.serviceCategories, element: <CategoriesPage/> }] },
+          {
+            element: <RequireArea area="settings"/>,
+            children: [
+              // Team, Branches and Storefront are tabs of Setup.
+              { path: paths.storefront, element: <StorefrontRedirect/> },
+              { path: paths.settings, element: <SettingsPage/> },
+              { path: paths.team, element: <TeamRedirect/> },
+              { path: paths.branches, element: <BranchesRedirect/> },
+              { path: paths.branchDetail, element: <BranchDetailRedirect/> },
+            ],
+          },
+          { element: <RequireArea area="kyc"/>, children: [{ path: paths.kyc, element: <KycPage/> }] },
         ],
       },
         ],

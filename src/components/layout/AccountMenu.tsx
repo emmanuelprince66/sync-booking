@@ -36,7 +36,7 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
             </div>)}
       </div>
       <div className="mt-1.5 flex flex-col gap-0.5 border-t border-border pt-1.5">
-        <MenuItem icon={Settings2} title="Manage branches" detail="Create branches and assign staff" onClick={account.manageBranches}/>
+        {account.manageBranches && <MenuItem icon={Settings2} title="Manage branches" detail="Create branches and assign staff" onClick={account.manageBranches}/>}
         <MenuItem icon={Building2} title="Switch business" detail="Open a different business" onClick={account.switchBusiness}/>
         <div className="mx-2.5 my-1 border-t border-border"/>
         <MenuItem icon={LogOut} title="Log out" detail="Sign out of your account" danger onClick={account.signOut}/>

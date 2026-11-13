@@ -4,6 +4,7 @@ import { useBookings, type Booking } from '@/api/bookings'
 import { useCustomerProfile, type Customer } from '@/api/customers'
 import { PAYMENT_LABELS, PAYMENT_STYLES, clientColor, isUpcoming } from '@/features/bookings/utils'
 import { useFormatMoney, useFormatMoneyCompact } from '@/hooks/useFormatMoney'
+import { usePermissions } from '@/hooks/usePermissions'
 import { addDays, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { initials } from '@/lib/format'
 import { paths } from '@/routes/paths'
@@ -36,6 +37,7 @@ const longDate = (iso: string) => {
 
 /** One client's page: sink's customer profile (identity, journey, figures) plus their booking history. */
 export function useClientDetail() {
+  const { canEditClients, canDeleteClients } = usePermissions()
   const { clientId = '' } = useParams()
   const navigate = useNavigate()
   const money = useFormatMoney()
@@ -57,6 +59,9 @@ export function useClientDetail() {
   const address = client?.address ? [client.address.address, client.address.city, client.address.state].filter(Boolean).join(', ') : ''
 
   return {
+    /** Edit and notes: customers:edit; delete: customers:delete (lib/access-map). */
+    canEdit: canEditClients,
+    canDelete: canDeleteClients,
     isLoading: profileQuery.isLoading,
     isError: profileQuery.isError,
     isMissing: !profileQuery.isLoading && !profileQuery.isError && !profile,

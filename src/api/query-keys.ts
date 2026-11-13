@@ -14,7 +14,6 @@ export const queryKeys = {
   customer: ['customer'] as const,
   customerOverview: ['customer-overview'] as const,
   attendants: ['attendants'] as const,
-  rolePermissionDefaults: ['role-permission-defaults'] as const,
   settlementAccounts: ['settlement-accounts'] as const,
   wallet: ['wallet'] as const,
   notifications: ['notifications'] as const,

@@ -8,7 +8,6 @@ import { cn } from '@/lib/cn'
 import { paths, setupPath } from '@/routes/paths'
 import { AccountMenu } from './AccountMenu'
 import { useMobileSidebar, useSidebar } from './hooks'
-import { navItems } from './nav'
 
 /** Logo, links, booking page card and the account block. Shared by the desktop sidebar and the mobile drawer. */
 /**
@@ -28,7 +27,7 @@ function SidebarContent({ onNavigate, onClose }: { onNavigate?: () => void; onCl
 
     <nav aria-label="Main" className="flex shrink-0 flex-col gap-1 px-4">
       <p className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/35">Workspace</p>
-      {navItems.map(item => {
+      {sidebar.items.map(item => {
         const NavIcon = item.icon
         const count = sidebar.counts[item.id]
         return <NavLink key={item.id} to={item.to} end={item.to === paths.overview} onClick={onNavigate} style={activeLinkStyle} className={({ isActive }) => cn('group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold', isActive ? 'bg-[#D8FF72] text-[#173A2E]' : 'text-white/60 transition-colors hover:bg-white/[0.07] hover:text-white')}>
@@ -41,7 +40,7 @@ function SidebarContent({ onNavigate, onClose }: { onNavigate?: () => void; onCl
       })}
     </nav>
 
-    <div className="m-4 mt-6 shrink-0 rounded-2xl bg-[#214C3D] p-4">
+    {sidebar.showStorefront && <div className="m-4 mt-6 shrink-0 rounded-2xl bg-[#214C3D] p-4">
       {sidebar.profileLoaded
         ? <>
           <div className="mb-3 flex items-center gap-2 text-[#D8FF72]"><WandSparkles size={16}/><span className="text-xs font-extrabold">{sidebar.hasBookingPage ? 'Your page is live' : 'Finish your page'}</span></div>
@@ -49,7 +48,7 @@ function SidebarContent({ onNavigate, onClose }: { onNavigate?: () => void; onCl
         </>
         : <div className="flex flex-col gap-2"><Skeleton className="h-4 w-28 bg-white/10"/><Skeleton className="h-8 w-full bg-white/10"/></div>}
       <NavLink to={setupPath('storefront')} onClick={onNavigate} className="mt-3 flex items-center gap-1.5 text-xs font-extrabold text-white">View storefront <ArrowRight size={13}/></NavLink>
-    </div>
+    </div>}
 
     <AccountMenu onNavigate={onNavigate}/>
   </>

@@ -23,10 +23,10 @@ export function ClientHeader({ detail }: { detail: ClientDetailModel }) {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex">
-        <Button variant="outline" onClick={detail.openEdit} className="h-10 border-white/20 bg-white/5 text-white hover:border-white/40 hover:text-white"><Pencil size={15}/> Edit</Button>
-        <Button variant="outline" onClick={() => detail.remove.ask(client)} className="h-10 border-white/20 bg-white/5 text-[#FFB4A8] hover:border-[#FFB4A8] hover:text-[#FFB4A8]"><Trash2 size={15}/> Delete</Button>
-      </div>
+      {(detail.canEdit || detail.canDelete) && <div className="grid grid-cols-2 gap-2 sm:flex">
+        {detail.canEdit && <Button variant="outline" onClick={detail.openEdit} className="h-10 border-white/20 bg-white/5 text-white hover:border-white/40 hover:text-white"><Pencil size={15}/> Edit</Button>}
+        {detail.canDelete && <Button variant="outline" onClick={() => detail.remove.ask(client)} className="h-10 border-white/20 bg-white/5 text-[#FFB4A8] hover:border-[#FFB4A8] hover:text-[#FFB4A8]"><Trash2 size={15}/> Delete</Button>}
+      </div>}
     </div>
     <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       {detail.stats.map(stat => <div key={stat.label} className="rounded-xl bg-white/[0.07] px-3 py-3">
@@ -59,7 +59,7 @@ export function ClientNotesCard({ detail }: { detail: ClientDetailModel }) {
   return <section className="rounded-2xl border border-border bg-white p-5">
     <div className="flex items-center justify-between gap-3">
       <p className={cardLabel}>Notes</p>
-      <button type="button" onClick={detail.openEdit} className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#24764F] hover:text-[#173A2E]"><NotebookPen size={13}/>{detail.notes ? 'Edit' : 'Add notes'}</button>
+      {detail.canEdit && <button type="button" onClick={detail.openEdit} className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#24764F] hover:text-[#173A2E]"><NotebookPen size={13}/>{detail.notes ? 'Edit' : 'Add notes'}</button>}
     </div>
     {detail.notes
       ? <p className="mt-3 whitespace-pre-line break-words text-sm font-semibold leading-relaxed text-[#405B50]">{detail.notes}</p>

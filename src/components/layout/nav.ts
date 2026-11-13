@@ -1,7 +1,9 @@
 import { CheckCircle2, Home, Settings, Sparkles, Users, Wallet, type LucideIcon } from 'lucide-react'
+import type { AppArea } from '@/lib/permissions'
 import { paths } from '@/routes/paths'
 
-export type NavItem = { id: string; label: string; to: string; icon: LucideIcon }
+/** `id` is also the app area the link opens, so the sidebar can leave out what a role can't use. */
+export type NavItem = { id: AppArea; label: string; to: string; icon: LucideIcon }
 
 /**
  * The owner's sidebar: exactly these six. Moved out of it, routes kept:

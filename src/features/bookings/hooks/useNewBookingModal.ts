@@ -12,7 +12,9 @@ import { useAllServices } from '@/api/services'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
+import { usePermissions } from '@/hooks/usePermissions'
 import { durationLong, fromIsoDate, minutesToTime, timeToMinutes, todayIso, weekdayDayMonth } from '@/lib/dates'
+import { useAuthStore } from '@/stores/auth-store'
 import { useUiStore } from '@/stores/ui-store'
 import { newBookingSchema, type BookingLineValues, type NewBookingValues } from '../schemas'
 import { buildSlots, dayOfWeekOf, eligibleStaff, minutesPassedOn, overlaps } from '../utils'
@@ -50,7 +52,15 @@ export function useNewBookingModal() {
   const checkout = useCheckoutBooking()
 
   const services = useMemo(() => (servicesQuery.data?.services ?? []).filter(service => service.isActive), [servicesQuery.data])
-  const allAttendants = useMemo(() => attendantsQuery.data ?? [], [attendantsQuery.data])
+  // An Attendant books for themselves only: their bookings are the only ones they can see afterwards.
+  const { staffScopeId, isAttendant } = usePermissions()
+  const userName = useAuthStore(state => [state.user?.firstname, state.user?.lastname].filter(Boolean).join(' ') || state.user?.name || 'Me')
+  const allAttendants = useMemo(() => {
+    const team = attendantsQuery.data ?? []
+    if (!isAttendant) return team
+    const self = team.filter(attendant => attendant.id === staffScopeId)
+    return self.length ? self : [{ id: staffScopeId, name: userName }]
+  }, [attendantsQuery.data, isAttendant, staffScopeId, userName])
   const lineFields = useFieldArray({ control, name: 'lines' })
   const lines = useMemo(() => (values.lines ?? []).map(line => ({ serviceId: line?.serviceId ?? '', staffId: line?.staffId ?? '', time: line?.time ?? '' })), [values.lines])
   const serviceOf = (id: string) => services.find(item => item.id === id)

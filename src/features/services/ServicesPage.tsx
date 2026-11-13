@@ -12,7 +12,7 @@ import { AvailabilityPanel } from '@/features/availability/AvailabilityPanel'
 import { ServiceFormModal } from './components/ServiceFormModal'
 import { ServiceHistory } from './components/ServiceHistory'
 import { useServicesPage } from './hooks/useServicesPage'
-import { SERVICES_TAB_OPTIONS, useServicesTabs } from './hooks/useServicesTabs'
+import { useServicesTabs } from './hooks/useServicesTabs'
 
 function ServicesSkeleton() {
   return <SkeletonGroup label="Loading services" className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
@@ -75,10 +75,10 @@ function ServicesCatalog() {
 
 /** /services: the catalogue, availability and service history, one tab each (?tab=…). */
 export default function ServicesPage() {
-  const { tab, setTab } = useServicesTabs()
+  const { tab, setTab, options, showTabs, subtitle } = useServicesTabs()
   return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
-    <PageTitle title="Services" subtitle="What you offer, when you’re open, and what has been booked."/>
-    <PillTabs value={tab} onChange={setTab} options={SERVICES_TAB_OPTIONS} className="mb-5 w-fit"/>
+    <PageTitle title={showTabs ? 'Services' : 'Service history'} subtitle={subtitle}/>
+    {showTabs && <PillTabs value={tab} onChange={setTab} options={options} className="mb-5 w-fit"/>}
     {tab === 'services' && <ServicesCatalog/>}
     {tab === 'availability' && <AvailabilityPanel/>}
     {tab === 'history' && <ServiceHistory/>}
