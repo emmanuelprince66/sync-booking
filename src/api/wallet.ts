@@ -31,8 +31,14 @@ export type TransactionType = 'CREDIT' | 'DEBIT'
 export type TransactionFilters = { page: number; limit: number; search: string; type: TransactionType | ''; startDate: string; endDate: string }
 export const DEFAULT_TRANSACTION_FILTERS: TransactionFilters = { page: 1, limit: TRANSACTIONS_PAGE_SIZE, search: '', type: '', startDate: '', endDate: '' }
 
-/** sink's transfer fee: ₦10 up to ₦5,000, ₦25 up to ₦50,000, ₦50 above. */
-export const transferCharge = (amount: number) => (!(amount > 0) ? 0 : amount <= 5000 ? 10 : amount <= 50000 ? 25 : 50)
+/**
+ * The backend's transfer fee table, the same for plain wallet transfers and expense transfers:
+ * ₦25 up to and including ₦50,000, ₦50 below ₦500,000, ₦100 from ₦500,000,
+ * plus ₦50 stamp duty once the amount is ₦10,000 or more.
+ */
+export const transferCharge = (amount: number) => (!(amount > 0) ? 0 : amount <= 50_000 ? 25 : amount < 500_000 ? 50 : 100)
+/** ₦50 stamp duty once the amount is ₦10,000 or more. */
+export const transferStampDuty = (amount: number) => (amount >= 10_000 ? 50 : 0)
 
 const MOCK_BANK_ID = 'sample-bank-1'
 /** Mock mode's wallet PIN (1234 until it is set, changed or reset). */
@@ -342,7 +348,7 @@ export type TransferInput = {
 const mockTransfer = async ({ pin, amount, narration, beneficiary }: TransferInput) => {
   await mockDelay(null, 900)
   if (pin !== mockPin.value) throw new Error('Incorrect PIN. Try again.')
-  const fee = transferCharge(amount)
+  const fee = transferCharge(amount) + transferStampDuty(amount)
   if (amount + fee > sample.wallet.balance) throw new Error('Insufficient balance for this transfer.')
   const reference = `CB${Date.now()}`
   const row: SampleWalletTrx = {

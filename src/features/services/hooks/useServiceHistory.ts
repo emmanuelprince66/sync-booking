@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAttendants } from '@/api/attendants'
-import { useBookings, type Booking } from '@/api/bookings'
+import { useServiceHistorySummary } from '@/api/bookings'
+import { useAllServices } from '@/api/services'
 import type { DateRange } from '@/components/ui/DateRangeFilter'
 import { useFormatMoney, useFormatMoneyCompact } from '@/hooks/useFormatMoney'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -9,18 +10,8 @@ import { toIsoDate } from '@/lib/dates'
 export const HISTORY_PAGE_SIZE = 10
 const ALL = ''
 
-/**
- * Counting rule (shown under the stat cards):
- * - "Booked": every booking in the range except cancelled and no-show ones.
- * - "Revenue": the amount actually paid on booked bookings that are completed or fully paid;
- *   refunded / refund-pending bookings add nothing.
- */
-const isBooked = (booking: Booking) => booking.status !== 'CANCELLED' && booking.status !== 'NO_SHOW'
-const revenueOf = (booking: Booking) => {
-  if (booking.paymentStatus === 'REFUNDED' || booking.paymentStatus === 'REFUND_PENDING') return 0
-  return booking.status === 'COMPLETED' || booking.paymentStatus === 'PAID' ? booking.amountPaid : 0
-}
-export const HISTORY_RULE = 'Booked counts every booking except cancelled and no-shows. Revenue is the amount paid on completed or fully paid bookings; refunds are left out.'
+/** The backend's counting rule (history-summary), shown under the stat cards. */
+export const HISTORY_RULE = 'Booked counts every booking except cancelled ones. Revenue is the amount paid on completed bookings.'
 
 const thisMonth = (): DateRange => {
   const today = new Date()
@@ -35,12 +26,9 @@ const dateLabel = (iso: string) => {
 }
 
 /**
- * Services → Service history. There is no history endpoint, so this reads the
- * bookings list for the range (GET service/bookings/business/{id}/?start_date&end_date,
- * whole range in one response) and groups it per date + service on the client.
- * The attendant and service filters match the booking's staff id / service id.
- * Attendants only get their own bookings (the bookings hooks narrow them), with the
- * attendant filter fixed on themselves.
+ * Services → Service history, from GET service/bookings/business/{id}/history-summary/
+ * ?start_date&end_date&staff_id&service_id: grouped by date + service on the server, and
+ * re-requested whenever the range or a filter changes. Attendants are fixed on themselves.
  */
 export function useServiceHistory() {
   const money = useFormatMoney()
@@ -57,45 +45,27 @@ export function useServiceHistory() {
   const effective = range?.from ? range : thisMonth()
   const startDate = toIsoDate(effective.from as Date)
   const endDate = toIsoDate(effective.to ?? (effective.from as Date))
-  const query = useBookings({ startDate, endDate })
+  const query = useServiceHistorySummary({ startDate, endDate, staffId: attendant, serviceId: service })
   const team = useAttendants()
-
-  const booked = useMemo(() => (query.data?.bookings ?? []).filter(isBooked), [query.data])
+  const services = useAllServices()
 
   const attendantOptions = useMemo(() => {
-    const names = new Map<string, string>()
-    for (const person of team.data ?? []) names.set(person.id, person.name)
-    for (const booking of booked) if (booking.staffId && !names.has(booking.staffId)) names.set(booking.staffId, booking.staffName || 'Staff member')
-    if (isAttendant) return [{ value: staffScopeId, label: names.get(staffScopeId) ?? 'My bookings' }]
-    return [{ value: ALL, label: 'All attendants' }, ...[...names].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))]
-  }, [team.data, booked, isAttendant, staffScopeId])
+    const people = (team.data ?? []).map(person => ({ value: person.id, label: person.name }))
+    if (isAttendant) return [{ value: staffScopeId, label: people.find(person => person.value === staffScopeId)?.label ?? 'My bookings' }]
+    return [{ value: ALL, label: 'All attendants' }, ...people.sort((a, b) => a.label.localeCompare(b.label))]
+  }, [team.data, isAttendant, staffScopeId])
 
   const serviceOptions = useMemo(() => {
-    const names = new Map<string, string>()
-    for (const booking of booked) names.set(booking.serviceId || booking.serviceName, booking.serviceName || 'Service')
-    return [{ value: ALL, label: 'All services' }, ...[...names].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))]
-  }, [booked])
+    const list = (services.data?.services ?? []).map(item => ({ value: item.id, label: item.name }))
+    return [{ value: ALL, label: 'All services' }, ...list.sort((a, b) => a.label.localeCompare(b.label))]
+  }, [services.data])
 
-  const filtered = useMemo(() => booked.filter(booking =>
-    (attendant === ALL || booking.staffId === attendant)
-    && (service === ALL || (booking.serviceId || booking.serviceName) === service)), [booked, attendant, service])
+  const rows = useMemo<HistoryRow[]>(() => (query.data ?? [])
+    .map(row => ({ key: `${row.date}|${row.serviceId}`, date: row.date, dateLabel: dateLabel(row.date), serviceName: row.serviceName || 'Service', count: row.count, revenue: row.revenue, revenueLabel: money(row.revenue) }))
+    .sort((a, b) => b.date.localeCompare(a.date) || a.serviceName.localeCompare(b.serviceName)), [query.data, money])
 
-  const rows = useMemo<HistoryRow[]>(() => {
-    const groups = new Map<string, HistoryRow>()
-    for (const booking of filtered) {
-      const serviceKey = booking.serviceId || booking.serviceName
-      const key = `${booking.date}|${serviceKey}`
-      const row = groups.get(key) ?? { key, date: booking.date, dateLabel: dateLabel(booking.date), serviceName: booking.serviceName || 'Service', count: 0, revenue: 0, revenueLabel: '' }
-      row.count += 1
-      row.revenue += revenueOf(booking)
-      groups.set(key, row)
-    }
-    return [...groups.values()]
-      .map(row => ({ ...row, revenueLabel: money(row.revenue) }))
-      .sort((a, b) => b.date.localeCompare(a.date) || a.serviceName.localeCompare(b.serviceName))
-  }, [filtered, money])
-
-  const totalRevenue = filtered.reduce((sum, booking) => sum + revenueOf(booking), 0)
+  const totalBooked = rows.reduce((sum, row) => sum + row.count, 0)
+  const totalRevenue = rows.reduce((sum, row) => sum + row.revenue, 0)
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const attendantName = attendantOptions.find(option => option.value === attendant)?.label
@@ -114,7 +84,7 @@ export function useServiceHistory() {
     isFiltered: (!isAttendant && attendant !== ALL) || service !== ALL,
     clearFilters: () => { setAttendantState(ALL); setServiceState(ALL); setPage(1) },
     stats: {
-      booked: String(filtered.length),
+      booked: String(totalBooked),
       revenue: moneyCompact(totalRevenue),
       scope: isAttendant ? 'By you' : attendant !== ALL && attendantName ? `By ${attendantName}` : undefined,
     },

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useAttendants } from '@/api/attendants'
@@ -48,7 +48,11 @@ export function useCheckoutForm(booking: Booking, onClose: () => void) {
 export function useRescheduleForm(booking: Booking, onClose: () => void) {
   const update = useUpdateBooking()
   const form = useForm<RescheduleValues>({ resolver: zodResolver(rescheduleSchema), defaultValues: { date: booking.date, time: booking.startTime } })
+  const [wholeVisit, setWholeVisit] = useState(Boolean(booking.groupId))
   return {
+    inVisit: Boolean(booking.groupId),
+    wholeVisit,
+    setWholeVisit,
     control: form.control,
     timeOptions: timeSelectOptions(booking.startTime),
     register: form.register,
@@ -56,8 +60,8 @@ export function useRescheduleForm(booking: Booking, onClose: () => void) {
     isSubmitting: update.isPending,
     onSubmit: form.handleSubmit(async values => {
       try {
-        await update.mutateAsync({ id: booking.id, patch: { newDate: values.date, newStartTime: values.time } })
-        toast.success('Booking rescheduled')
+        await update.mutateAsync({ id: booking.id, patch: { newDate: values.date, newStartTime: values.time, applyToGroup: Boolean(booking.groupId) && wholeVisit } })
+        toast.success(booking.groupId && wholeVisit ? 'Visit rescheduled' : 'Booking rescheduled')
         onClose()
       } catch (error) {
         toast.error(errorMessage(error, 'Could not reschedule booking.'))
@@ -70,14 +74,18 @@ export function useRescheduleForm(booking: Booking, onClose: () => void) {
 export function useCancelForm(booking: Booking, onClose: () => void) {
   const cancel = useCancelBooking()
   const form = useForm<CancelValues>({ resolver: zodResolver(cancelSchema), defaultValues: { reason: '' } })
+  const [wholeVisit, setWholeVisit] = useState(Boolean(booking.groupId))
   return {
+    inVisit: Boolean(booking.groupId),
+    wholeVisit,
+    setWholeVisit,
     register: form.register,
     errors: form.formState.errors,
     isSubmitting: cancel.isPending,
     onSubmit: form.handleSubmit(async values => {
       try {
-        await cancel.mutateAsync({ id: booking.id, reason: values.reason })
-        toast.success('Booking cancelled')
+        await cancel.mutateAsync({ id: booking.id, reason: values.reason, cancelGroup: Boolean(booking.groupId) && wholeVisit })
+        toast.success(booking.groupId && wholeVisit ? 'Visit cancelled' : 'Booking cancelled')
         onClose()
       } catch (error) {
         toast.error(errorMessage(error, 'Could not cancel booking.'))
@@ -90,7 +98,7 @@ export function useCancelForm(booking: Booking, onClose: () => void) {
 export function useRefundForm(booking: Booking, onClose: () => void) {
   const money = useFormatMoney()
   const disburse = useDisburseRefund()
-  const form = useForm<RefundValues>({ resolver: zodResolver(refundSchema), defaultValues: { method: 'BANK_TRANSFER', reference: '', notes: '' } })
+  const form = useForm<RefundValues>({ resolver: zodResolver(refundSchema), defaultValues: { method: 'BANK', reference: '', notes: '' } })
   const method = useWatch({ control: form.control, name: 'method' })
   return {
     register: form.register,

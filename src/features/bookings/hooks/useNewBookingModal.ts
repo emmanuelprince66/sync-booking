@@ -6,7 +6,7 @@ import { useAttendants } from '@/api/attendants'
 import { errorMessage } from '@/api/auth'
 import { DEFAULT_SETTINGS, useBlockedTimesForDates, useBookingSettings, useSchedule } from '@/api/availability'
 import { maskedAccount, useSettlementAccounts } from '@/api/banks'
-import { useBookings, useCheckoutBooking, useCreateBooking } from '@/api/bookings'
+import { useBookings, useCheckoutBooking, useCreateBooking, useCreateVisit } from '@/api/bookings'
 import { useCreateCustomer, useCustomers, type Customer } from '@/api/customers'
 import { useAllServices } from '@/api/services'
 import { useDisclosure } from '@/hooks/useDisclosure'
@@ -49,6 +49,7 @@ export function useNewBookingModal() {
   const settingsQuery = useBookingSettings()
   const createCustomer = useCreateCustomer()
   const createBooking = useCreateBooking()
+  const createVisit = useCreateVisit()
   const checkout = useCheckoutBooking()
 
   const services = useMemo(() => (servicesQuery.data?.services ?? []).filter(service => service.isActive), [servicesQuery.data])
@@ -187,7 +188,36 @@ export function useNewBookingModal() {
     const booked: { index: number; time: string }[] = []
     const failed: { index: number; label: string; reason: string }[] = []
     const unpaid: string[] = []
-    // One booking per line (the backend takes one service per booking), one after another.
+
+    // Several services back-to-back (each starting as the one before ends) go in as ONE visit:
+    // the backend books them together under a group_id, each with its own attendant, all or nothing.
+    const ordered = input.lines.map((line, index) => ({ line, index, service: serviceOf(line.serviceId) })).sort((a, b) => timeToMinutes(a.line.time) - timeToMinutes(b.line.time))
+    const backToBack = ordered.length > 1 && ordered.every(({ service }) => Boolean(service)) && ordered.every((item, at) => at === 0 || timeToMinutes(item.line.time) === timeToMinutes(ordered[at - 1].line.time) + (ordered[at - 1].service?.duration ?? 0))
+    if (backToBack) {
+      try {
+        const ids = await createVisit.mutateAsync({
+          customerId: client.id, customerName: client.name, customerPhone: client.phone, customerEmail: client.email,
+          date: input.date, startTime: ordered[0].line.time, notes: input.notes.trim(),
+          legs: ordered.map(({ line, service }) => ({ serviceId: service!.id, serviceName: service!.name, staffId: line.staffId, staffName: staffName(line.staffId), durationMinutes: service!.duration, price: service!.amount })),
+        })
+        if (input.paid) {
+          for (const [at, id] of ids.entries()) {
+            const leg = ordered[at]
+            if (!id || !leg?.service) continue
+            try { await checkout.mutateAsync({ id, amount: leg.service.amount, method: input.method, bankId: input.bankId || null }) } catch { unpaid.push(`${leg.service.name} at ${leg.line.time}`) }
+          }
+        }
+        if (unpaid.length) toast.error(`Booked, but the payment wasn’t recorded for ${joinNames(unpaid)}. Record it from the booking.`)
+        toast.success(`Visit booked for ${client.name} · ${ordered.length} services from ${ordered[0].line.time}`)
+        close()
+      } catch (error) {
+        // All or nothing: nothing was created, so every line stays for another try.
+        toast.error(errorMessage(error, 'Could not book this visit.'), { duration: 10_000 })
+      }
+      return
+    }
+
+    // Services that aren't back-to-back: one booking per line, one after another.
     for (const [index, line] of input.lines.entries()) {
       const service = serviceOf(line.serviceId)
       const label = `${service?.name ?? 'Service'} at ${line.time}`

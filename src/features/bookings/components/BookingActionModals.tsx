@@ -6,6 +6,7 @@ import { ChoiceButton } from '@/components/ui/misc'
 import { FormModal } from '@/components/ui/Modal'
 import { OptionSelect } from '@/components/ui/OptionSelect'
 import { Select } from '@/components/ui/Select'
+import { Toggle } from '@/components/ui/Toggle'
 import { PAYMENT_METHODS, REFUND_METHODS } from '../constants'
 import { useCancelForm, useCheckoutForm, useReassignForm, useRefundForm, useRescheduleForm } from '../hooks/useBookingForms'
 
@@ -35,6 +36,7 @@ export function RescheduleModal({ booking, onClose }: ActionModalProps) {
       <FormDateField control={form.control} name="date" label="Date"/>
       <Select label="Time" options={form.timeOptions} error={form.errors.time?.message} {...form.register('time')}/>
     </div>
+    {form.inVisit && <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border p-3"><span><b className="block text-xs">Move the whole visit</b><span className="text-[11px] text-muted-foreground">Every service in this visit shifts by the same amount</span></span><Toggle enabled={form.wholeVisit} onChange={form.setWholeVisit} label="Move the whole visit"/></div>}
   </FormModal>
 }
 
@@ -45,6 +47,7 @@ export function CancelBookingModal({ booking, onClose }: ActionModalProps) {
     <Button type="submit" variant="danger" loading={form.isSubmitting}>Cancel booking</Button>
   </>}>
     <TextareaField label="Reason" placeholder="Why is this booking being cancelled?" error={form.errors.reason?.message} {...form.register('reason')}/>
+    {form.inVisit && <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border p-3"><span><b className="block text-xs">Cancel the whole visit</b><span className="text-[11px] text-muted-foreground">Cancels every service booked together in this visit</span></span><Toggle enabled={form.wholeVisit} onChange={form.setWholeVisit} label="Cancel the whole visit"/></div>}
   </FormModal>
 }
 
@@ -55,7 +58,7 @@ export function RefundModal({ booking, onClose }: ActionModalProps) {
     <Button type="submit" loading={form.isSubmitting}>Record refund</Button>
   </>}>
     <div className="flex flex-col gap-4">
-      <div><span className={fieldLabelClass}>Paid by</span><div className="grid grid-cols-2 gap-2">{REFUND_METHODS.map(option => <ChoiceButton key={option.value} selected={form.method === option.value} onClick={() => form.setMethod(option.value)}>{option.label}</ChoiceButton>)}</div></div>
+      <div><span className={fieldLabelClass}>Paid by</span><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{REFUND_METHODS.map(option => <ChoiceButton key={option.value} selected={form.method === option.value} onClick={() => form.setMethod(option.value)}>{option.label}</ChoiceButton>)}</div></div>
       <Field label="Reference (optional)" placeholder="Transfer reference" {...form.register('reference')}/>
       <TextareaField label="Notes (optional)" rows={2} {...form.register('notes')}/>
     </div>

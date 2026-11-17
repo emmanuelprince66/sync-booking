@@ -47,7 +47,7 @@ export const cancelSchema = z.object({ reason: z.string().trim().min(1, 'Add a r
 export type CancelValues = z.infer<typeof cancelSchema>
 
 export const refundSchema = z.object({
-  method: z.enum(['BANK_TRANSFER', 'CASH']),
+  method: z.enum(['BANK', 'CASH', 'POS', 'CARD']),
   reference: z.string(),
   notes: z.string(),
 })

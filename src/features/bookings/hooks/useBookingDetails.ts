@@ -25,7 +25,10 @@ export function useBookingDetails() {
 
   const booking = query.data ?? null
   // Super admins run every booking; an Attendant checks in, completes and takes payment on their own only.
-  const canManageSettings = permissions.canManageBookings
+  // Cancel / reschedule / reassign / refund need bookings:manage, and below admin the backend only allows
+  // them on the attendant's own booking (403 otherwise), so they're offered only there.
+  const isOwn = Boolean(booking) && booking?.staffId === permissions.staffScopeId
+  const canManageSettings = permissions.canManageBookings && (permissions.isSuperAdmin || isOwn)
   const canUpdateProgress = canManageSettings || (Boolean(booking) && booking?.staffId === permissions.staffScopeId)
   const canManage = Boolean(booking) && booking?.status !== 'CANCELLED' && booking?.status !== 'COMPLETED'
   const inProgress = booking?.status === 'IN_PROGRESS'

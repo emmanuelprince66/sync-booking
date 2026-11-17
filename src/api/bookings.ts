@@ -13,22 +13,24 @@ import { sample } from './sample-data'
  *        → { summary, selected_date, schedule: Booking[], pagination: { count, page, limit, total_pages } | null }
  *        page/limit are opt-in: without them `schedule` is the whole range and pagination is null.
  *        summary always covers the whole range.
- *        `staff_id` narrows the list to one attendee's bookings (sent for Attendant logins; the
- *        list is also filtered here, in case the backend ignores it).
- *  POST  service/bookings/business/{business_id}/
+ *        `staff_id` narrows the list to one attendee's bookings (server-side; every booking carries staff_id).
+ *  POST  service/bookings/business/{business_id}/      one service, or a visit: { services: [{ service_id, staff_id? }], start_time, … }
+ *        → a visit is back-to-back legs sharing a `group_id`, all or nothing → { group_id, bookings }
  *  GET   service/bookings/{booking_id}/
- *  PATCH service/bookings/{booking_id}/              { status } or { new_date, new_start_time } or { staff_id } (null unassigns;
+ *  PATCH service/bookings/{booking_id}/              { status } or { new_date, new_start_time, apply_to_group? } or { staff_id } (null unassigns;
  *                                                    400 with a message when that attendee is busy or invalid)
- *  POST  service/bookings/{booking_id}/cancel/        { reason }
+ *  POST  service/bookings/{booking_id}/cancel/        { reason, cancel_group? }
+ *  Staff below admin can only cancel/reschedule/reassign/refund their OWN bookings (403 otherwise).
  *  POST  service/bookings/{booking_id}/checkout/      { amount_received, method, bank_id }
- *  POST  service/bookings/{booking_id}/disburse-refund/ { disbursement_method, reference?, notes? }
+ *  POST  service/bookings/{booking_id}/disburse-refund/ { disbursement_method: CASH|POS|BANK|CARD, reference?, notes? } (once only)
  */
 
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED'
 export type PaymentStatus = 'UNPAID' | 'DEPOSIT_PAID' | 'PAID' | 'REFUND_PENDING' | 'REFUNDED' | 'DEPOSIT_FORFEITED'
 export type RefundFilter = 'REFUND_PENDING' | 'REFUNDED' | 'REFUND'
 export type CheckoutMethod = 'CASH' | 'CARD' | 'TRANSFER'
-export type RefundMethod = 'BANK_TRANSFER' | 'CASH'
+/** The backend accepts exactly these (the same set as settling at POS). */
+export type RefundMethod = 'BANK' | 'CASH' | 'POS' | 'CARD'
 
 export type Booking = {
   id: string
@@ -57,6 +59,8 @@ export type Booking = {
   source: 'storefront' | 'staff'
   notes: string
   cancellationReason: string
+  /** Shared by the legs of one multi-service visit; empty for a standalone booking. */
+  groupId?: string
 }
 
 export type BookingsSummary = { pendingRefunds: number; pendingRefundsAmount: number; unearnedRevenue: number }
@@ -95,6 +99,7 @@ export const mapBooking = (value: unknown): Booking => {
     source: str(record.source) === 'storefront' ? 'storefront' : 'staff',
     notes: str(record.notes),
     cancellationReason: str(record.cancellation_reason),
+    groupId: str(record.group_id),
   }
 }
 
@@ -157,11 +162,8 @@ const getBookings = async (businessId: string, query: BookingsQuery): Promise<Bo
   if (!isLive()) return mockDelay({ bookings: filterMockBookings(query), summary: summaryOf(sample.bookings.filter(item => !query.staffId || item.staffId === query.staffId)) })
   const data = payloadOf(await apiRequest<unknown>(`service/bookings/business/${businessId}/?${bookingsParams(query).toString()}`))
   const bookings = listFrom(data, ['schedule', 'results', 'bookings']).map(mapBooking).sort(bySchedule)
-  // The business-wide summary would show an attendant everyone's refunds, so theirs is worked out from their own list.
-  if (query.staffId) {
-    const own = bookings.filter(item => item.staffId === query.staffId)
-    return { bookings: own, summary: summaryOf(own) }
-  }
+  // The server filters by staff_id; the refunds summary is still worked out from their own list.
+  if (query.staffId) return { bookings, summary: summaryOf(bookings) }
   return { bookings, summary: mapSummary(data) }
 }
 
@@ -173,9 +175,7 @@ const pageOf = ({ bookings, summary }: BookingsResult, query: BookingsPageQuery)
 })
 
 const getBookingsPage = async (businessId: string, query: BookingsPageQuery): Promise<BookingsPageResult> => {
-  // An attendant's list is filtered here, so it's read whole and paged on the client
-  // (server pages would come back short whenever the backend ignores staff_id).
-  if (!isLive() || query.staffId) return pageOf(await getBookings(businessId, query), query)
+  if (!isLive()) return pageOf(await getBookings(businessId, query), query)
   const params = bookingsParams(query)
   params.set('page', String(query.page))
   params.set('limit', String(query.limit))
@@ -311,7 +311,7 @@ const updateMockBooking = (id: string, patch: Partial<Booking>) => {
 
 export type BookingPatch =
   | { status: 'IN_PROGRESS' | 'COMPLETED' }
-  | { newDate: string; newStartTime: string }
+  | { newDate: string; newStartTime: string; applyToGroup?: boolean }
   /** staffId null unassigns the booking. */
   | { staffId: string | null; staffName: string }
 
@@ -321,17 +321,17 @@ const updateBooking = ({ id, patch }: { id: string; patch: BookingPatch }) => {
     if ('newDate' in patch) return updateMockBooking(id, { date: patch.newDate, startTime: patch.newStartTime })
     return updateMockBooking(id, { staffId: patch.staffId ?? '', staffName: patch.staffId ? patch.staffName : '' })
   }
-  const body = 'status' in patch ? { status: patch.status } : 'newDate' in patch ? { new_date: patch.newDate, new_start_time: patch.newStartTime } : { staff_id: patch.staffId }
+  const body = 'status' in patch ? { status: patch.status } : 'newDate' in patch ? { new_date: patch.newDate, new_start_time: patch.newStartTime, ...(patch.applyToGroup ? { apply_to_group: true } : {}) } : { staff_id: patch.staffId }
   return apiRequest<unknown>(`service/bookings/${id}/`, { method: 'PATCH', body })
 }
 
-const cancelBooking = ({ id, reason }: { id: string; reason: string }) => {
+const cancelBooking = ({ id, reason, cancelGroup }: { id: string; reason: string; cancelGroup?: boolean }) => {
   if (!isLive()) {
     const current = sample.bookings.find(item => item.id === id)
     const refundable = current?.amountPaid ?? 0
     return updateMockBooking(id, { status: 'CANCELLED', cancellationReason: reason, ...(refundable > 0 ? { paymentStatus: 'REFUND_PENDING' as const, refundableAmount: refundable, balanceDue: 0 } : {}) })
   }
-  return apiRequest<unknown>(`service/bookings/${id}/cancel/`, { method: 'POST', body: { reason } })
+  return apiRequest<unknown>(`service/bookings/${id}/cancel/`, { method: 'POST', body: { reason, ...(cancelGroup ? { cancel_group: true } : {}) } })
 }
 
 export type CheckoutInput = { id: string; amount: number; method: CheckoutMethod; bankId: string | null }
@@ -366,7 +366,103 @@ export const useCreateBooking = () => {
   return useMutation({ mutationFn: (input: CreateBookingInput) => createBooking(scope, input), onSuccess: invalidate })
 }
 
+export type CreateVisitInput = Omit<CreateBookingInput, 'serviceId' | 'serviceName' | 'staffId' | 'staffName' | 'endTime' | 'durationMinutes' | 'price'> & {
+  /** In order; the backend books them back-to-back from startTime. */
+  legs: { serviceId: string; serviceName: string; staffId: string; staffName: string; durationMinutes: number; price: number }[]
+}
+
+/** One visit: several services back-to-back, each with its own attendant, sharing a group_id. All or nothing. Returns each leg's booking id, in order. */
+const createVisit = async (businessId: string, input: CreateVisitInput): Promise<string[]> => {
+  if (!isLive()) {
+    const groupId = `sample-group-${Date.now()}`
+    let start = input.startTime
+    const ids: string[] = []
+    for (const [index, leg] of input.legs.entries()) {
+      const [h, m] = start.split(':').map(Number)
+      const endMinutes = h * 60 + m + leg.durationMinutes
+      const end = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+      const id = `sample-booking-${Date.now()}-${index}`
+      sample.bookings = [...sample.bookings, {
+        id, reference: `CB-${String(Date.now()).slice(-5)}${index}`, date: input.date, startTime: start, endTime: end, durationMinutes: leg.durationMinutes,
+        customerId: input.customerId, customerName: input.customerName, customerPhone: input.customerPhone, customerEmail: input.customerEmail,
+        serviceId: leg.serviceId, serviceName: leg.serviceName, staffId: leg.staffId, staffName: leg.staffName,
+        amount: leg.price, amountPaid: 0, balanceDue: leg.price, refundableAmount: 0, paymentOption: 'PAY_AT_BUSINESS', paymentStatus: 'UNPAID', status: 'CONFIRMED', source: 'staff', notes: input.notes, cancellationReason: '', groupId,
+      }]
+      ids.push(id)
+      start = end
+    }
+    return mockDelay(ids, 600)
+  }
+  const response = await apiRequest<unknown>(`service/bookings/business/${businessId}/`, {
+    method: 'POST',
+    body: {
+      services: input.legs.map(leg => ({ service_id: leg.serviceId, ...(leg.staffId ? { staff_id: leg.staffId } : {}) })),
+      customer_id: input.customerId,
+      customer_name: input.customerName,
+      customer_phone: input.customerPhone,
+      customer_email: input.customerEmail,
+      booking_date: input.date,
+      start_time: input.startTime,
+      payment_option: 'PAY_AT_BUSINESS',
+      notes: input.notes,
+    },
+  })
+  const data = asRecord(payloadOf(response))
+  return listFrom(data.bookings, []).map(item => str(asRecord(item).id))
+}
+
+export const useCreateVisit = () => {
+  const { scope } = useBusinessScope()
+  const invalidate = useInvalidateBookings()
+  return useMutation({ mutationFn: (input: CreateVisitInput) => createVisit(scope, input), onSuccess: invalidate })
+}
+
 export const useUpdateBooking = () => useMutation({ mutationFn: updateBooking, onSuccess: useInvalidateBookings() })
 export const useCancelBooking = () => useMutation({ mutationFn: cancelBooking, onSuccess: useInvalidateBookings() })
 export const useCheckoutBooking = () => useMutation({ mutationFn: checkoutBooking, onSuccess: useInvalidateBookings() })
 export const useDisburseRefund = () => useMutation({ mutationFn: disburseRefund, onSuccess: useInvalidateBookings() })
+
+// ─── Service history (GET service/bookings/business/{id}/history-summary/) ───────────
+
+export type ServiceHistoryRow = { date: string; serviceId: string; serviceName: string; count: number; revenue: number }
+export type ServiceHistoryQuery = { startDate: string; endDate: string; staffId: string; serviceId: string }
+
+/**
+ * Grouped by date + service on the server. `bookings_count` is every non-cancelled booking;
+ * `revenue` only counts completed, actually-paid ones (the dashboard's today_revenue rule).
+ */
+const getServiceHistory = async (businessId: string, query: ServiceHistoryQuery): Promise<ServiceHistoryRow[]> => {
+  if (!isLive()) {
+    const rows = new Map<string, ServiceHistoryRow>()
+    for (const item of sample.bookings) {
+      if (item.status === 'CANCELLED' || (query.startDate && item.date < query.startDate) || (query.endDate && item.date > query.endDate)) continue
+      if ((query.staffId && item.staffId !== query.staffId) || (query.serviceId && item.serviceId !== query.serviceId)) continue
+      const key = `${item.date}|${item.serviceId}`
+      const row = rows.get(key) ?? { date: item.date, serviceId: item.serviceId, serviceName: item.serviceName, count: 0, revenue: 0 }
+      row.count += 1
+      if (item.status === 'COMPLETED' && item.paymentStatus === 'PAID') row.revenue += item.amountPaid
+      rows.set(key, row)
+    }
+    return mockDelay([...rows.values()])
+  }
+  const params = new URLSearchParams()
+  if (query.startDate) params.set('start_date', query.startDate)
+  if (query.endDate) params.set('end_date', query.endDate)
+  if (query.staffId) params.set('staff_id', query.staffId)
+  if (query.serviceId) params.set('service_id', query.serviceId)
+  const data = payloadOf(await apiRequest<unknown>(`service/bookings/business/${businessId}/history-summary/?${params.toString()}`))
+  return listFrom(data, ['results', 'data']).map(value => {
+    const row = asRecord(value)
+    return { date: str(row.date), serviceId: str(row.service_id), serviceName: str(row.service_name), count: num(row.bookings_count), revenue: num(row.revenue) }
+  })
+}
+
+export const useServiceHistorySummary = (query: ServiceHistoryQuery) => {
+  const { scope, enabled } = useBusinessScope()
+  return useQuery({
+    queryKey: [...queryKeys.bookings, 'history-summary', scope, query.startDate, query.endDate, query.staffId, query.serviceId],
+    queryFn: () => getServiceHistory(scope, query),
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+}

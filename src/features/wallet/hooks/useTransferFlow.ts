@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
 import { useBankOptions } from '@/api/banks'
 import {
-  extractTransactionId, transferCharge, useBeneficiaryEnquiry, useExpenseCategories, useRecentBeneficiaries, useSetWalletPin, useTransfer,
+  extractTransactionId, transferCharge, transferStampDuty, useBeneficiaryEnquiry, useExpenseCategories, useRecentBeneficiaries, useSetWalletPin, useTransfer,
   WALLET_PIN_LENGTH, type RecentBeneficiary,
 } from '@/api/wallet'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
@@ -14,6 +14,7 @@ export type TransferStep = 'pin' | 'recipient' | 'amount' | 'confirm' | 'done'
 export type TransferReceipt = {
   amount: number
   fee: number
+  stamp: number
   beneficiaryName: string
   accountNumber: string
   bankName: string
@@ -77,7 +78,8 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
 
   const amountValue = Number(amount) || 0
   const fee = transferCharge(amountValue)
-  const total = amountValue + fee
+  const stamp = transferStampDuty(amountValue)
+  const total = amountValue + fee + stamp
   const categoryName = categories.data?.find(category => category.id === categoryId)?.name ?? ''
 
   const goTo = (next: TransferStep) => { setError(''); setStep(next) }
@@ -99,7 +101,7 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
 
   const continueFromAmount = () => {
     if (!(amountValue > 0)) return setError('Enter the amount to send.')
-    if (total > balance) return setError(`Insufficient balance. With the ${money(fee)} fee you can send up to ${money(Math.max(balance - transferCharge(balance), 0))}.`)
+    if (total > balance) return setError(`Insufficient balance. With the ${money(fee)} fee you can send up to ${money(Math.max(balance - transferCharge(balance) - transferStampDuty(balance), 0))}.`)
     goTo('confirm')
   }
 
@@ -112,7 +114,7 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
         const pending = /processed|processing|pending/i.test(str(at(response, 'message')))
         if (pending) toast.info('Transfer is being processed')
         else toast.success('Transfer successful')
-        setReceipt({ amount: amountValue, fee, beneficiaryName: beneficiary.name, accountNumber, bankName, narration: narration.trim(), category: categoryName, reference: extractTransactionId(response), date: new Date().toISOString(), senderName, pending })
+        setReceipt({ amount: amountValue, fee, stamp, beneficiaryName: beneficiary.name, accountNumber, bankName, narration: narration.trim(), category: categoryName, reference: extractTransactionId(response), date: new Date().toISOString(), senderName, pending })
         goTo('done')
       },
       onError: sendError => { setPinState(''); setError(errorMessage(sendError, 'Transfer failed. Please try again.')) },
@@ -171,7 +173,7 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
       value: amount,
       set: (value: string) => { setAmountState(value.replace(/[^\d.]/g, '')); setError('') },
       balanceLabel: money(balance),
-      feeLabel: money(fee),
+      feeLabel: stamp ? `${money(fee)} + ${money(stamp)} stamp duty` : money(fee),
       totalLabel: money(total),
       overBalance: total > balance,
       categoryOptions: (categories.data ?? []).map(category => ({ value: category.id, label: category.name })),
@@ -188,6 +190,7 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
         { label: 'Account', value: `${accountNumber} · ${bankName}` },
         { label: 'Amount', value: money(amountValue) },
         { label: 'Transfer fee', value: money(fee) },
+        ...(stamp ? [{ label: 'Stamp duty', value: money(stamp) }] : []),
         ...(categoryName ? [{ label: 'Category', value: categoryName }] : []),
         ...(narration.trim() ? [{ label: 'Narration', value: narration.trim() }] : []),
       ],
@@ -207,7 +210,8 @@ export function useTransferFlow({ bankId, balance, hasPin, senderName, preset, o
         { label: 'Account number', value: receipt.accountNumber },
         { label: 'Bank', value: receipt.bankName },
         { label: 'Transfer fee', value: money(receipt.fee) },
-        { label: 'Total debited', value: money(receipt.amount + receipt.fee) },
+        ...(receipt.stamp ? [{ label: 'Stamp duty', value: money(receipt.stamp) }] : []),
+        { label: 'Total debited', value: money(receipt.amount + receipt.fee + receipt.stamp) },
         ...(receipt.category ? [{ label: 'Category', value: receipt.category }] : []),
         ...(receipt.narration ? [{ label: 'Narration', value: receipt.narration }] : []),
         ...(receipt.senderName ? [{ label: 'From', value: receipt.senderName }] : []),

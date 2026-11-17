@@ -7,8 +7,10 @@ export const PAYMENT_METHODS: { value: CheckoutMethod; label: string }[] = [
 ]
 
 export const REFUND_METHODS: { value: RefundMethod; label: string }[] = [
-  { value: 'BANK_TRANSFER', label: 'Bank transfer' },
+  { value: 'BANK', label: 'Bank transfer' },
   { value: 'CASH', label: 'Cash' },
+  { value: 'POS', label: 'POS' },
+  { value: 'CARD', label: 'Card' },
 ]
 
 export type BookingsTab = 'All' | 'Upcoming' | 'Refunds'

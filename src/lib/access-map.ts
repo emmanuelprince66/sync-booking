@@ -19,10 +19,13 @@ export const ACCESS = {
   // ─── Bookings (sink: Fulfillment → Bookings) ────────────────────────────
   /** Bookings page and Calendar. sink /bookings → bookings:view. sink's role rule: OWNER / ADMIN-ATTENDANT only. */
   bookings: { matrix: ['bookings:view'], roles: 'everyone' },
-  /** New booking. Nearest sink key: bookings:create. */
-  addBooking: { matrix: ['bookings:create'], roles: 'everyone' },
-  /** Refunds, reschedule, reassign, cancel. sink RefundsPage/BookingDetails → isOwner || isAdminAttendant; checklist bookings:edit or bookings:cancel. */
-  manageBookings: { matrix: ['bookings:edit', 'bookings:cancel'], roles: 'adminLike' },
+  /**
+   * The backend's bookings module has exactly two actions, view and manage: `manage` covers creating,
+   * editing, cancelling, rescheduling and reassigning. Attendants don't get it by default; the owner can grant it.
+   */
+  addBooking: { matrix: ['bookings:manage'], roles: 'adminLike' },
+  /** Refunds, reschedule, reassign, cancel (bookings:manage). Below admin, only on their own bookings (server-enforced). */
+  manageBookings: { matrix: ['bookings:manage'], roles: 'adminLike' },
 
   // ─── Clients (sink: Customers) ──────────────────────────────────────────
   /** Clients page. sink /customers → customers:view. sink's role rule: OWNER / ADMIN-ATTENDANT / ACCOUNTANT. */
