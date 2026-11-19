@@ -1,6 +1,7 @@
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
+import { usePlanGate } from '@/api/plan'
 import { SERVICES_PAGE_SIZE, useDeleteService, useServices, useSetServiceActive, type Service } from '@/api/services'
 import { serviceColor } from '@/features/bookings/utils'
 import { useFormatMoney } from '@/hooks/useFormatMoney'
@@ -22,6 +23,10 @@ export function useServicesPage() {
   const active = services.filter(service => service.isActive)
   const average = active.length ? active.reduce((sum, service) => sum + service.amount, 0) / active.length : 0
   const total = query.data?.total ?? services.length
+  // Service uploads (inventory_count): the backend's live count first, else this business's service total.
+  const gate = usePlanGate()
+  const atServiceLimit = gate.atLimit('inventory_count', gate.used('inventory_count') ?? (query.data ? total : undefined))
+  const serviceLimit = gate.limit('inventory_count')
 
   return {
     // Services carry no bookings count (sales_count is a customer field), so cards don't show one.
@@ -37,6 +42,8 @@ export function useServicesPage() {
       note: active.length ? `${total} ${total === 1 ? 'service' : 'services'} · Average price ${money(Math.round(average))}` : 'Add a service so clients can start booking.',
       showPill: active.length > 0,
     },
+    atServiceLimit,
+    serviceLimitNote: atServiceLimit ? `You’ve added all ${typeof serviceLimit === 'number' ? `${serviceLimit.toLocaleString()} ` : ''}services your plan allows.` : '',
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isError: query.isError,
@@ -46,7 +53,7 @@ export function useServicesPage() {
     totalPages: query.data?.pages ?? 1,
     setPage,
     dialog,
-    openAdd: () => setDialog({ mode: 'add' }),
+    openAdd: () => { if (!atServiceLimit) setDialog({ mode: 'add' }) },
     openEdit: (service: Service) => setDialog({ mode: 'edit', service }),
     openDelete: (service: Service) => setDialog({ mode: 'delete', service }),
     onCardKeyDown: (event: KeyboardEvent, service: Service) => {

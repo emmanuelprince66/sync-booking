@@ -36,7 +36,7 @@ export function useWalletPage() {
     canTransfer,
     /** KYC lives in Setup (settings:view). */
     canOpenKyc: canManageBusiness,
-    subtitle: canTransfer ? 'Withdraw your earnings, send money and see every payment in and out.' : canManageWallet ? 'Your balance and every payment in and out.' : 'Every payment in and out of the business wallet.',
+    subtitle: canTransfer ? 'Send money from your wallet and see every payment in and out.' : canManageWallet ? 'Your balance and every payment in and out.' : 'Every payment in and out of the business wallet.',
     isLoading: wallet.isLoading,
     isError: wallet.isError,
     retry: () => void wallet.refetch(),

@@ -1,5 +1,6 @@
 import { UserPlus, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { PlanLimitNote } from '@/components/ui/PlanNotice'
 import { SearchInput } from '@/components/ui/common'
 import { EmptyState, ErrorState, SectionTitle } from '@/components/ui/misc'
 import { ConfirmModal } from '@/components/ui/Modal'
@@ -14,9 +15,10 @@ import { useTeamPage } from './hooks/useTeamPage'
 /** Setup → Team: staff accounts, their roles, permissions and branches. Bookings and services are assigned to these people. */
 export function TeamPanel() {
   const page = useTeamPage()
-  const addButton = page.canInvite && <Button onClick={page.openAdd}><UserPlus size={16}/> Add staff member</Button>
+  const addButton = page.canInvite && <Button onClick={page.openAdd} disabled={page.atAttendantLimit} title={page.attendantLimitNote || undefined}><UserPlus size={16}/> Add staff member</Button>
   return <div className="min-w-0">
     <SectionTitle title="Team" subtitle="The people who take appointments, and what each can do." actions={addButton}/>
+    {page.canInvite && page.atAttendantLimit && <PlanLimitNote className="mb-4">{page.attendantLimitNote}</PlanLimitNote>}
 
     <div className="rounded-2xl border border-border bg-white">
       <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center">

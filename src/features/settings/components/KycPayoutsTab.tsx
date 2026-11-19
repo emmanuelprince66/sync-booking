@@ -48,7 +48,7 @@ export function KycPayoutsTab() {
       </div>
       <div className="mt-6 border-t border-border pt-5">
         <ReadOnlyField label="Payout bank" value={tab.payoutBank} isLoading={tab.payoutBankLoading}/>
-        <p className="mt-2 text-[11px] font-semibold text-[#8A9C93]">Withdraw your balance to this account from the Wallet page.</p>
+        <p className="mt-2 text-[11px] font-semibold text-[#8A9C93]">Payouts and transfers from your wallet land in this account.</p>
       </div>
     </div>
   </div>

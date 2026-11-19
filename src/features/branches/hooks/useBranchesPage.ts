@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { useBranchStaffCounts } from '@/api/attendants'
 import { businessAddress, useBusinesses, type Business } from '@/api/business'
+import { usePlanGate } from '@/api/plan'
 import { useActivateBusiness } from '@/features/business/hooks/useActivateBusiness'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { initials } from '@/lib/format'
@@ -45,8 +46,14 @@ export function useBranchesPage() {
     staff: staffCounts[business.id] ?? null,
   }))
 
+  // Branches are counted account-wide (no_of_business).
+  const gate = usePlanGate()
+  const atBranchLimit = gate.atLimit('no_of_business', isLoading || isError ? undefined : businesses.length)
+  const branchLimit = gate.limit('no_of_business')
   return {
     cards,
+    atBranchLimit,
+    branchLimitNote: atBranchLimit ? `Your plan covers ${typeof branchLimit === 'number' ? `${branchLimit} ` : ''}${branchLimit === 1 ? 'branch' : 'branches'}. Upgrade to add another.` : '',
     isLoading,
     isError,
     retry: () => void refetch(),

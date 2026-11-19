@@ -24,7 +24,7 @@ type OverviewCard = { label: string; value: string; note: string; tone: StatTone
  * with no business-wide figures (new clients, booking rate, revenue).
  */
 export function useOverview() {
-  const { openNewBooking, openBooking, canAddBooking } = useBookingActions()
+  const { openNewBooking, openBooking, canAddBooking, atBookingLimit, bookingLimitNote } = useBookingActions()
   const { isAttendant, canManageServices } = usePermissions()
   const moneyCompact = useFormatMoneyCompact()
   const bookingsQuery = useDefaultBookings()
@@ -105,6 +105,8 @@ export function useOverview() {
     tomorrowLabel: `Tomorrow · ${summary.tomorrowCount} ${summary.tomorrowCount === 1 ? 'booking' : 'bookings'}`,
     openNewBooking,
     canAddBooking,
+    atBookingLimit,
+    bookingLimitNote,
     openBooking,
   }
 }

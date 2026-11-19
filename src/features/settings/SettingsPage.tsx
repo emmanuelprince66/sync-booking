@@ -1,4 +1,6 @@
-import { Building2, CreditCard, Globe2, ShieldCheck, Store, UserCog } from 'lucide-react'
+import { OnlinePaymentsCard } from './components/OnlinePaymentsCard'
+import { Building2, CreditCard, Crown, Globe2, ShieldCheck, Store, UserCog } from 'lucide-react'
+import { PlanTab } from './components/PlanTab'
 import { PageTitle } from '@/components/ui/misc'
 import { BranchesPanel } from '@/features/branches/BranchesPanel'
 import { BranchStaffView } from '@/features/branches/BranchStaffView'
@@ -14,6 +16,7 @@ import { useSetupTabs } from './hooks/useSetupTabs'
 const TABS: { id: SetupTab; label: string; icon: typeof ShieldCheck }[] = [
   { id: 'kyc', label: 'KYC & payouts', icon: ShieldCheck },
   { id: 'payments', label: 'Payment options', icon: CreditCard },
+  { id: 'plan', label: 'Plan & billing', icon: Crown },
   { id: 'domain', label: 'Custom domain', icon: Globe2 },
   { id: 'storefront', label: 'Storefront', icon: Store },
   { id: 'team', label: 'Team', icon: UserCog },
@@ -33,7 +36,8 @@ export default function SettingsPage() {
     </nav>
     <div className="min-w-0">
       {tab === 'kyc' && <KycPayoutsTab/>}
-      {tab === 'payments' && <PaymentOptionsTab/>}
+      {tab === 'payments' && <div className="flex flex-col gap-4"><OnlinePaymentsCard/><PaymentOptionsTab/></div>}
+      {tab === 'plan' && <PlanTab/>}
       {tab === 'domain' && <CustomDomainTab/>}
       {tab === 'storefront' && <StorefrontPanel/>}
       {tab === 'team' && <TeamPanel/>}

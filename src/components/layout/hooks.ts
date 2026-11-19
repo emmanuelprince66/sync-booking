@@ -5,6 +5,7 @@ import { roleLabel } from '@/api/attendants'
 import { useBusinesses, type Business } from '@/api/business'
 import { useDefaultBookings } from '@/api/bookings'
 import { useKycStatus } from '@/api/kyc'
+import { useBranchSubscription } from '@/api/plan'
 import { useMarkAllNotificationsRead, useNotifications, useUnreadNotifications } from '@/api/notifications'
 import { getBookingUrl, useStorefrontProfile } from '@/api/storefront'
 import { formatActivityDate } from '@/api/http'
@@ -182,7 +183,15 @@ export function useNotificationBell() {
 export function useAppShell() {
   const newBookingOpen = useUiStore(state => state.newBookingOpen)
   const hasSelectedBooking = useUiStore(state => Boolean(state.selectedBookingId))
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+  const branch = useBranchSubscription()
+  // Plan & billing shows its own notice.
+  const onPlanTab = `${pathname}${search}` === setupPath('plan')
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
-  return { newBookingOpen, hasSelectedBooking }
+  return {
+    newBookingOpen,
+    hasSelectedBooking,
+    /** A non-founding branch without its own subscription (sink's isBranchLocked). */
+    branchLock: branch.locked && !onPlanTab ? { branchName: branch.branchName } : null,
+  }
 }

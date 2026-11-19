@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { CUSTOMER_STATUS_FILTERS, CUSTOMERS_PAGE_SIZE, useCustomers, type Customer } from '@/api/customers'
+import { usePlanGate } from '@/api/plan'
 import type { DateRange } from '@/components/ui/DateRangeFilter'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFormatMoney, useFormatMoneyCompact } from '@/hooks/useFormatMoney'
@@ -33,10 +34,16 @@ export function useClientsPage() {
 
   const clients = query.data?.customers ?? []
   const summary = query.data?.summary
+  // Client records are shared across Sync360 apps, so the backend's customer_count is the one to trust.
+  const gate = usePlanGate()
+  const atClientLimit = gate.atLimit('customers_count')
+  const clientLimit = gate.limit('customers_count')
 
   return {
     /** sink Customers / Contact: customers:create, customers:edit, customers:delete (lib/access-map). */
     can: { add: canAddClients, edit: canEditClients, delete: canDeleteClients, export: canExportClients },
+    atClientLimit,
+    clientLimitNote: atClientLimit ? `You’ve reached the ${typeof clientLimit === 'number' ? `${clientLimit.toLocaleString()} ` : ''}client records on your plan.` : '',
     searchInput,
     setSearch: (value: string) => { setSearchInput(value); setPage(1) },
     status,
@@ -65,7 +72,7 @@ export function useClientsPage() {
     pageSize,
     setPageSize: (size: number) => { setPageSize(size); setPage(1) },
     dialog,
-    openAdd: () => setDialog({ mode: 'add' }),
+    openAdd: () => { if (!atClientLimit) setDialog({ mode: 'add' }) },
     openEdit: (client: Customer) => setDialog({ mode: 'edit', client }),
     closeDialog: () => setDialog(null),
     openDetail: (client: Customer) => navigate(clientPath(client.id)),

@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { toast } from 'sonner'
+import { usePlanGate } from '@/api/plan'
 import { getBookingUrl, type StorefrontProfile } from '@/api/storefront'
 import { useClipboard } from '@/hooks/useClipboard'
 import { useDisclosure } from '@/hooks/useDisclosure'
@@ -34,6 +35,7 @@ const downloadSvgAsPng = (svg: SVGSVGElement, fileName: string) => new Promise<v
 export function useStoreLink(profile: StorefrontProfile) {
   const { copied, copy } = useClipboard()
   const domainDialog = useDisclosure()
+  const { customDomain: domainAllowed } = usePlanGate()
   // An id rather than a ref: the QR is only read in the download handler.
   const qrId = useId()
   const url = getBookingUrl(profile)
@@ -59,6 +61,8 @@ export function useStoreLink(profile: StorefrontProfile) {
     domain: profile.customDomain,
     domainStatus: !profile.customDomain ? 'none' as const : profile.customDomainApproved ? 'connected' as const : 'pending' as const,
     domainDialog,
+    /** Custom domain isn't on this plan: a saved one stays visible, connecting or changing it is locked. */
+    domainLocked: !domainAllowed,
   }
 }
 

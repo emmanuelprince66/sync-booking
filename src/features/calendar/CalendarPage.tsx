@@ -1,5 +1,6 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, TimerOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { PlanLimitNote } from '@/components/ui/PlanNotice'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { EmptyState, ErrorState, PageTitle } from '@/components/ui/misc'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
@@ -62,8 +63,9 @@ export default function CalendarPage() {
     <PageTitle title="Calendar" subtitle="See your week, your way." actions={<>
       <DateRangeFilter singleDay value={page.jumpValue} onChange={page.jumpTo} placeholder="Go to date" align="end" triggerClassName="h-11 text-sm"/>
       <Button variant="outline" onClick={page.goToToday}>Today</Button>
-      {page.canAddBooking && <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button>}
+      {page.canAddBooking && <Button onClick={page.openNewBooking} disabled={page.atBookingLimit} title={page.bookingLimitNote || undefined}><Plus size={17}/> New booking</Button>}
     </>}/>
+    {page.canAddBooking && page.atBookingLimit && <PlanLimitNote className="mb-4">{page.bookingLimitNote}</PlanLimitNote>}
     <div className="mb-4 flex items-center justify-between gap-3">
       <p className="truncate text-sm font-black text-[#173A2E]">{page.rangeLabel}</p>
       <div className="flex shrink-0 gap-1">

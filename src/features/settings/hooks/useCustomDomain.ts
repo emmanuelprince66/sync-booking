@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
+import { usePlanGate } from '@/api/plan'
 import { normalizeDomain, STORE_DNS_TARGET, useSaveStorefront, useStorefrontProfile } from '@/api/storefront'
 import { domainSchema, type DomainValues } from '../schemas'
 
@@ -10,6 +11,7 @@ import { domainSchema, type DomainValues } from '../schemas'
 export function useCustomDomain() {
   const query = useStorefrontProfile()
   const save = useSaveStorefront()
+  const gate = usePlanGate()
   const values = useMemo<DomainValues>(() => ({ domain: query.data?.customDomain ?? '' }), [query.data])
   const form = useForm<DomainValues>({ resolver: zodResolver(domainSchema), values })
   const domain = useWatch({ control: form.control, name: 'domain' }) ?? ''
@@ -19,8 +21,12 @@ export function useCustomDomain() {
   const approved = Boolean(query.data?.customDomainApproved && normalizeDomain(saved) === host)
   const pending = Boolean(saved && !query.data?.customDomainApproved && normalizeDomain(saved) === host)
 
+  // Not on this plan: a domain already saved stays visible (read-only); a new one can't be entered.
+  const locked = !gate.customDomain
   return {
     isLoading: query.isLoading,
+    locked,
+    hasSaved: Boolean(saved),
     register: form.register,
     errors: form.formState.errors,
     status: approved ? 'approved' as const : pending ? 'pending' as const : 'none' as const,
@@ -36,6 +42,7 @@ export function useCustomDomain() {
       else toast.success('No domain saved yet')
     },
     onSubmit: form.handleSubmit(async input => {
+      if (locked) return
       try {
         await save.mutateAsync({ customDomain: normalizeDomain(input.domain) })
         toast.success('Domain verification started')

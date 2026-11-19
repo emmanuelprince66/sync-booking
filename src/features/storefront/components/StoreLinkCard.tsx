@@ -1,7 +1,9 @@
-import { Check, Copy, Download, ExternalLink, Globe2, Link2, MessageCircle, Plus, Settings2 } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, Globe2, Link2, Lock, MessageCircle, Plus, Settings2 } from 'lucide-react'
+import { Link } from 'react-router'
 import { QrCode } from '@/components/ui/QrCode'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
+import { setupPath } from '@/routes/paths'
 import type { StoreLinkModel } from '../hooks/useStoreLink'
 import { CustomDomainModal } from './CustomDomainModal'
 import { SettingsCard } from './SettingsCard'
@@ -39,8 +41,11 @@ export function StoreLinkCard({ link }: { link: StoreLinkModel }) {
         <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-black text-[#29483B]">Custom domain</span>{link.domainStatus !== 'none' && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-extrabold', DOMAIN_BADGES[link.domainStatus].className)}>{DOMAIN_BADGES[link.domainStatus].label}</span>}</div>
         <p className="mt-0.5 truncate text-xs font-semibold text-[#8A9C93]">{link.domain || 'Use your own address, like book.yourbusiness.com'}</p>
       </div>
-      <Button variant="outline" onClick={link.domainDialog.open} className="h-10 text-xs">{link.domain ? <Settings2 size={15}/> : <Plus size={15}/>}{link.domain ? 'Change domain' : 'Connect domain'}</Button>
+      {link.domainLocked
+        ? <Link to={setupPath('plan')} className={linkButton}><Lock size={15}/> Upgrade to connect</Link>
+        : <Button variant="outline" onClick={link.domainDialog.open} className="h-10 text-xs">{link.domain ? <Settings2 size={15}/> : <Plus size={15}/>}{link.domain ? 'Change domain' : 'Connect domain'}</Button>}
     </div>
-    <CustomDomainModal open={link.domainDialog.isOpen} onClose={link.domainDialog.close} currentDomain={link.domain}/>
+    {link.domainLocked && <p className="mt-2 text-[11px] font-semibold text-[#8A9C93]">Custom domains aren’t on your plan.</p>}
+    <CustomDomainModal open={link.domainDialog.isOpen && !link.domainLocked} onClose={link.domainDialog.close} currentDomain={link.domain}/>
   </SettingsCard>
 }

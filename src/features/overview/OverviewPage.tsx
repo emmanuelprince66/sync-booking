@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, TimerOff } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/Button'
+import { PlanLimitNote } from '@/components/ui/PlanNotice'
 import { ColorStatCard } from '@/components/ui/ColorStatCard'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
@@ -35,8 +36,9 @@ export default function OverviewPage() {
   return <div className="mx-auto flex max-w-[1192px] flex-col gap-6 p-5 md:p-8">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0"><p className="mb-1 text-sm font-bold text-[#6F877B]">{page.dateLabel}</p><h1 className="text-3xl font-black tracking-[-0.035em] text-[#173A2E]">Overview</h1><p className="mt-1 text-sm font-semibold text-[#71867C]">{page.tagline}</p></div>
-      {page.canAddBooking && <Button onClick={page.openNewBooking} className="shrink-0"><Plus size={17}/> New booking</Button>}
+      {page.canAddBooking && <Button onClick={page.openNewBooking} disabled={page.atBookingLimit} title={page.bookingLimitNote || undefined} className="shrink-0"><Plus size={17}/> New booking</Button>}
     </div>
+    {page.canAddBooking && page.atBookingLimit && <PlanLimitNote>{page.bookingLimitNote}</PlanLimitNote>}
 
     <section aria-label="Today at a glance" className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {page.cards.map(card => <ColorStatCard key={card.label} size="lg" label={card.label} value={card.value} note={card.note} icon={card.icon} tone={card.tone} loading={card.isLoading}/>)}
@@ -56,7 +58,7 @@ export default function OverviewPage() {
           : page.listLoading
             ? <div className="px-5 md:px-6"><BookingRowsSkeleton/></div>
             : page.list.length === 0
-              ? <EmptyState icon={<CalendarDays size={20}/>} title={page.listEmptyTitle} text={page.listEmptyText} action={page.canAddBooking ? <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button> : undefined}/>
+              ? <EmptyState icon={<CalendarDays size={20}/>} title={page.listEmptyTitle} text={page.listEmptyText} action={page.canAddBooking ? <Button onClick={page.openNewBooking} disabled={page.atBookingLimit} title={page.bookingLimitNote || undefined}><Plus size={17}/> New booking</Button> : undefined}/>
               : <div className="px-5 md:px-6">{page.list.map(booking => <BookingRow key={booking.id} booking={booking} onView={page.openBooking}/>)}</div>}
       </div>
       <div className="flex min-w-0 flex-col gap-4">

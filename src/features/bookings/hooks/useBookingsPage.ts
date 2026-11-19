@@ -33,7 +33,7 @@ const plural = (count: number, word: string) => `${count} ${count === 1 ? word :
 export function useBookingsPage() {
   const money = useFormatMoney()
   const moneyCompact = useFormatMoneyCompact()
-  const { openNewBooking, openBooking, canAddBooking } = useBookingActions()
+  const { openNewBooking, openBooking, canAddBooking, atBookingLimit, bookingLimitNote } = useBookingActions()
   const { canManageBookings } = usePermissions()
   const [params] = useSearchParams()
   const [tab, setTabState] = useState<BookingsTab>('All')
@@ -152,6 +152,8 @@ export function useBookingsPage() {
     },
     openNewBooking,
     canAddBooking,
+    atBookingLimit,
+    bookingLimitNote,
     openBooking,
     isExporting,
     exportCsv: async () => {

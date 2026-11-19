@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Banknote, KeyRound, Landmark, Send, ShieldCheck } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, KeyRound, Landmark, Send, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/Button'
 import { ErrorState, PageTitle } from '@/components/ui/misc'
@@ -20,7 +20,7 @@ function Flow({ icon, label, value }: { icon: 'in' | 'out'; label: string; value
 }
 
 function BalanceCard({ page }: { page: WalletPageModel }) {
-  const { balance, withdraw, transfer } = page
+  const { balance, transfer } = page
   // Two rows that use the full width: balance beside money in/out, then the actions across the card.
   return <section aria-label="Wallet balance" className="relative flex min-w-0 flex-col justify-between gap-6 overflow-hidden rounded-2xl bg-[#173A2E] p-5 text-white sm:p-6">
     <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#D8FF72]/[0.06]"/>
@@ -37,12 +37,10 @@ function BalanceCard({ page }: { page: WalletPageModel }) {
       </div>
     </div>
     {page.hasWallet
-      ? page.canTransfer && <div className="relative grid grid-cols-2 gap-2">
-        <Button onClick={withdraw.open} disabled={!withdraw.enabled} className="h-12 w-full bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A]"><Banknote size={18}/> Withdraw</Button>
-        <Button onClick={transfer.open} disabled={!transfer.enabled} className="h-12 w-full border border-white/20 bg-white/[0.08] text-white shadow-none hover:bg-white/[0.14]"><Send size={17}/> Transfer</Button>
+      ? page.canTransfer && <div className="relative">
+        <Button onClick={transfer.open} className="h-12 w-full bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A]"><Send size={17}/> Transfer</Button>
       </div>
       : page.canOpenKyc && <Button onClick={page.goToKyc} className="h-12 w-full bg-[#D8FF72] text-[#173A2E] shadow-none hover:bg-[#E4FF9A] sm:w-auto"><ShieldCheck size={17}/> Complete KYC</Button>}
-    {page.canTransfer && withdraw.hint && <p className="-mt-3 text-[11px] font-semibold text-white/55">{withdraw.hint}</p>}
   </section>
 }
 

@@ -2,6 +2,7 @@ import { Clock3, Pencil, Plus, Power, Sparkles, Tags, Trash2 } from 'lucide-reac
 import { Link } from 'react-router'
 import { ActionMenu } from '@/components/ui/ActionMenu'
 import { Button } from '@/components/ui/Button'
+import { PlanLimitNote } from '@/components/ui/PlanNotice'
 import { EmptyState, ErrorState, InitialsTile, PageTitle, PillTabs } from '@/components/ui/misc'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
@@ -29,8 +30,9 @@ function ServicesCatalog() {
   return <div className="min-w-0">
     <div className="mb-4 flex flex-wrap justify-end gap-2">
       <Link to={paths.serviceCategories} className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-extrabold text-[#3E584E] transition hover:border-[#9DB1A9] hover:text-[#173A2E]"><Tags size={16}/> Manage categories</Link>
-      <Button onClick={page.openAdd}><Plus size={17}/> Add service</Button>
+      <Button onClick={page.openAdd} disabled={page.atServiceLimit} title={page.serviceLimitNote || undefined}><Plus size={17}/> Add service</Button>
     </div>
+    {page.atServiceLimit && <PlanLimitNote className="mb-4">{page.serviceLimitNote}</PlanLimitNote>}
     <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-[#D8FF72] p-5 md:p-6">
       {page.isLoading
         ? <div className="flex flex-1 flex-col gap-2"><Skeleton className="h-4 w-48 max-w-full bg-white/60"/><Skeleton className="h-3 w-64 max-w-full bg-white/60"/></div>
@@ -39,7 +41,7 @@ function ServicesCatalog() {
     </div>
     {page.isError && <ErrorState title="We couldn’t load your services" onRetry={page.retry}/>}
     {page.isLoading && <ServicesSkeleton/>}
-    {page.isEmpty && !page.isError && <div className="rounded-2xl border border-border bg-white"><EmptyState icon={<Sparkles size={20}/>} title="No services yet" text="Add your first service so clients can book it." action={<Button onClick={page.openAdd}><Plus size={17}/> Add service</Button>}/></div>}
+    {page.isEmpty && !page.isError && <div className="rounded-2xl border border-border bg-white"><EmptyState icon={<Sparkles size={20}/>} title="No services yet" text="Add your first service so clients can book it." action={<Button onClick={page.openAdd} disabled={page.atServiceLimit} title={page.serviceLimitNote || undefined}><Plus size={17}/> Add service</Button>}/></div>}
     {!page.isLoading && !page.isError && <div className={cn('grid grid-cols-[minmax(0,1fr)] gap-4 transition-opacity md:grid-cols-2', page.isFetching && 'opacity-60')}>
       {page.cards.map(card => <div key={card.service.id} role="button" tabIndex={0} aria-label={`Edit ${card.service.name}`} onClick={() => page.openEdit(card.service)} onKeyDown={event => page.onCardKeyDown(event, card.service)} className={cn('group cursor-pointer rounded-2xl border border-border bg-white p-5 outline-none transition hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(23,58,46,0.08)] focus-visible:border-[#329661] focus-visible:ring-4 focus-visible:ring-[#329661]/10', !card.service.isActive && 'opacity-70')}>
         <div className="flex items-start gap-4">

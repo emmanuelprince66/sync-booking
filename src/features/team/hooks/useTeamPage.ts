@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { TEAM_ROLES, roleLabel, staffErrorMessage, useAttendants, useRemoveAttendant, type Attendant } from '@/api/attendants'
 import { useBusinesses } from '@/api/business'
+import { usePlanGate } from '@/api/plan'
 import { teamColor } from '@/features/bookings/utils'
 import { initials } from '@/lib/format'
 import { useTeamAccess } from './useTeamAccess'
@@ -28,6 +29,7 @@ export function useTeamPage() {
   const businesses = useBusinesses()
   const remove = useRemoveAttendant()
   const access = useTeamAccess()
+  const gate = usePlanGate()
   const [search, setSearchValue] = useState('')
   const [role, setRoleValue] = useState('')
   const [page, setPage] = useState(1)
@@ -51,9 +53,15 @@ export function useTeamPage() {
   }))
 
   const deleting = dialog?.mode === 'delete' ? dialog.attendant : null
+  // Attendants are a shared pool (no_of_attendants); the owner's own account isn't one of them.
+  const attendantCount = query.data ? all.filter(attendant => attendant.role !== 'OWNER').length : undefined
+  const atAttendantLimit = gate.atLimit('no_of_attendants', attendantCount)
+  const attendantLimit = gate.limit('no_of_attendants')
 
   return {
     canInvite: access.canInvite,
+    atAttendantLimit,
+    attendantLimitNote: atAttendantLimit ? `You’ve added all ${typeof attendantLimit === 'number' ? `${attendantLimit} ` : ''}attendants your plan allows.` : '',
     canManage: access.canManage,
     search,
     setSearch: (value: string) => { setSearchValue(value); setPage(1) },
@@ -75,7 +83,7 @@ export function useTeamPage() {
     setPageSize: (size: number) => { setPageSizeValue(size); setPage(1) },
     showPagination: !query.isLoading && filtered.length > 0,
     dialog,
-    openAdd: () => setDialog({ mode: 'add' }),
+    openAdd: () => { if (!atAttendantLimit) setDialog({ mode: 'add' }) },
     openEdit: (attendant: Attendant) => setDialog({ mode: 'edit', attendant }),
     openBranches: (attendant: Attendant) => setDialog({ mode: 'branches', attendant }),
     askDelete: (attendant: Attendant) => setDialog({ mode: 'delete', attendant }),

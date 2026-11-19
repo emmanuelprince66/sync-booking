@@ -24,7 +24,7 @@ export const paths = {
 } as const
 
 /** Tabs of the Setup page (/settings?tab=…). Team, Branches and Storefront live here, not in the sidebar. */
-export const SETUP_TABS = ['kyc', 'payments', 'domain', 'storefront', 'team', 'branches'] as const
+export const SETUP_TABS = ['kyc', 'payments', 'plan', 'domain', 'storefront', 'team', 'branches'] as const
 export type SetupTab = typeof SETUP_TABS[number]
 export const setupPath = (tab: SetupTab) => `${paths.settings}?tab=${tab}`
 

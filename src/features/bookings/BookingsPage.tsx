@@ -1,5 +1,6 @@
 import { CalendarDays, FileDown, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { PlanLimitNote } from '@/components/ui/PlanNotice'
 import { ColorStatCard } from '@/components/ui/ColorStatCard'
 import { SearchInput } from '@/components/ui/common'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
@@ -42,8 +43,9 @@ export default function BookingsPage() {
   return <div className="mx-auto max-w-[1192px] p-5 md:p-8">
     <PageTitle title="Bookings" subtitle="Every appointment, neatly in place." actions={<>
       <Button variant="outline" onClick={() => void page.exportCsv()} loading={page.isExporting} className="text-foreground"><FileDown size={16}/> Export</Button>
-      {page.canAddBooking && <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button>}
+      {page.canAddBooking && <Button onClick={page.openNewBooking} disabled={page.atBookingLimit} title={page.bookingLimitNote || undefined}><Plus size={17}/> New booking</Button>}
     </>}/>
+    {page.canAddBooking && page.atBookingLimit && <PlanLimitNote className="mb-5">{page.bookingLimitNote}</PlanLimitNote>}
     <StatCards page={page}/>
     <div className="rounded-2xl border border-border bg-white">
       <div className="flex flex-col gap-3 border-b border-border p-4">
@@ -68,7 +70,7 @@ export default function BookingsPage() {
         : page.isLoading
           ? <div className="px-5 md:px-6"><BookingRowsSkeleton rows={Math.min(page.pageSize, 6)}/></div>
           : page.isEmpty
-            ? <EmptyState icon={<CalendarDays size={20}/>} title={page.isFiltered ? 'No bookings match this view' : page.isRefunds ? 'No refunds here' : 'No bookings yet'} text={page.isFiltered ? 'Try another search or status, or widen the date range.' : page.isRefunds ? 'Refunds from cancelled bookings will queue up here.' : 'Add your first booking or share your booking page.'} action={!page.isRefunds && !page.isFiltered && page.canAddBooking ? <Button onClick={page.openNewBooking}><Plus size={17}/> New booking</Button> : undefined}/>
+            ? <EmptyState icon={<CalendarDays size={20}/>} title={page.isFiltered ? 'No bookings match this view' : page.isRefunds ? 'No refunds here' : 'No bookings yet'} text={page.isFiltered ? 'Try another search or status, or widen the date range.' : page.isRefunds ? 'Refunds from cancelled bookings will queue up here.' : 'Add your first booking or share your booking page.'} action={!page.isRefunds && !page.isFiltered && page.canAddBooking ? <Button onClick={page.openNewBooking} disabled={page.atBookingLimit} title={page.bookingLimitNote || undefined}><Plus size={17}/> New booking</Button> : undefined}/>
             : <div aria-busy={page.isFetching} className={cn('px-5 transition-opacity md:px-6', page.isFetching && 'opacity-60')}>{page.rows.map(booking => <BookingRow key={booking.id} booking={booking} onView={page.openBooking}/>)}</div>}
       {!page.isError && !page.isEmpty && <Pagination currentPage={page.page} totalPages={page.totalPages} onPageChange={page.setPage} pageSize={page.pageSize} onPageSizeChange={page.setPageSize} pageSizeOptions={page.pageSizeOptions}/>}
     </div>
