@@ -55,6 +55,13 @@ export type PlanSummary = {
   customerLimit: number | null
   bookingsCount: number | null
   bookingsLimit: number | null
+  /** Added by the backend (Nov 2026): the tier's name and numeric id (user/plans/ id). */
+  planName: string
+  subscriptionPlanId: string
+  /** The tier's attendant and business limits (-1 = unlimited). The owner isn't an attendant; businesses include the founding one. */
+  attendantsLimit: number | null
+  businessLimit: number | null
+  customDomainAllowed: boolean | null
 }
 const maybeNum = (value: unknown) => (value === undefined || value === null || value === '' ? null : num(value))
 export const summaryOf = (root: UnknownRecord): PlanSummary => ({
@@ -70,6 +77,11 @@ export const summaryOf = (root: UnknownRecord): PlanSummary => ({
   customerLimit: maybeNum(root.customer_limit),
   bookingsCount: maybeNum(root.bookings_count),
   bookingsLimit: maybeNum(root.bookings_limit),
+  planName: str(root.plan_name),
+  subscriptionPlanId: str(root.subscription_plan_id),
+  attendantsLimit: maybeNum(root.no_of_attendants),
+  businessLimit: maybeNum(root.no_of_business),
+  customDomainAllowed: typeof root.custom_domain_allowed === 'boolean' ? root.custom_domain_allowed : null,
 })
 
 export type ActivePlan = {
@@ -165,6 +177,9 @@ const useActivePlanRaw = () => {
  * inventory_count and customers_count equal active_plan's inventory_limit and customer_limit. No match → none.
  */
 export const matchPlan = (active: ActivePlan, plans: Plan[]) => {
+  // subscription_plan_id is the tier's user/plans/ id: exact. Matching by limits is only for older backends.
+  const byId = active.summary.subscriptionPlanId ? plans.find(plan => plan.id === active.summary.subscriptionPlanId) : undefined
+  if (byId) return byId
   const { inventoryLimit, customerLimit } = active.summary
   if (inventoryLimit === null || customerLimit === null) return undefined
   const found = plans.filter(plan => plan.raw && num(plan.raw.inventory_count) === inventoryLimit && num(plan.raw.customers_count) === customerLimit)
@@ -176,7 +191,9 @@ export const useActivePlan = () => {
   const plans = usePlans()
   const raw = query.data
   const tier = raw ? matchPlan(raw, plans.data ?? []) : undefined
-  const data: ActivePlan | undefined = raw && { ...raw, name: tier?.name || raw.name, limits: { ...(tier?.limits ?? {}), ...raw.limits } }
+  const s = raw?.summary
+  // Limits active_plan sends itself win over the matched tier's.
+  const data: ActivePlan | undefined = raw && s && { ...raw, name: s.planName || tier?.name || raw.name, limits: { ...(tier?.limits ?? {}), ...raw.limits, ...(s.attendantsLimit !== null ? { no_of_attendants: s.attendantsLimit } : {}), ...(s.businessLimit !== null ? { no_of_business: s.businessLimit } : {}), ...(s.bookingsLimit !== null ? { no_of_bookings: s.bookingsLimit } : {}), ...(s.customDomainAllowed !== null ? { custom_domain: s.customDomainAllowed } : {}) } }
   return { data, isLoading: query.isLoading, isError: query.isError, error: query.error, refetch: query.refetch }
 }
 
