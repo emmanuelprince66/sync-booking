@@ -12,6 +12,7 @@ const loaders = {
   clientDetail: () => import('@/features/clients/ClientDetailPage'),
   services: () => import('@/features/services/ServicesPage'),
   categories: () => import('@/features/categories/CategoriesPage'),
+  customDomain: () => import('@/features/storefront/CustomDomainPage'),
   settings: () => import('@/features/settings/SettingsPage'),
   kyc: () => import('@/features/kyc/KycPage'),
 }
@@ -27,6 +28,7 @@ export const pages = {
   ClientDetailPage: lazy(loaders.clientDetail),
   ServicesPage: lazy(loaders.services),
   CategoriesPage: lazy(loaders.categories),
+  CustomDomainPage: lazy(loaders.customDomain),
   SettingsPage: lazy(loaders.settings),
   KycPage: lazy(loaders.kyc),
 }

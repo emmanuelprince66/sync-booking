@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Check, Crown, Lock, Minus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/api/auth'
@@ -84,6 +85,8 @@ function CurrentPlanCard({ summary, name }: { summary: PlanSummary; name: string
 
 /** Setup → Plan & billing: the current plan as sink-inventory shows it, every tier side by side, and upgrading. */
 export function PlanTab() {
+  const [searchParams] = useSearchParams()
+  const domainUpgrade = searchParams.get('upgrade') === 'custom-domain'
   const money = useFormatMoney()
   const plans = usePlans()
   const active = useActivePlan()
@@ -95,6 +98,12 @@ export function PlanTab() {
   const [choosing, setChoosing] = useState('')
   const priceKey = BILLING_PERIODS.find(item => item.value === period)?.priceKey ?? 'monthly'
   const current = active.data
+  const allPlans = plans.data ?? []
+  const syncPlusIndex = allPlans.findIndex(plan => plan.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'syncplus')
+  const customDomainPlans = syncPlusIndex >= 0
+    ? allPlans.slice(syncPlusIndex)
+    : allPlans.filter(plan => plan.limits.custom_domain === true || (typeof plan.limits.custom_domain === 'number' && plan.limits.custom_domain > 0))
+  const visiblePlans = domainUpgrade ? customDomainPlans : allPlans
 
   const choose = (plan: Plan) => {
     setChoosing(plan.id)
@@ -114,12 +123,13 @@ export function PlanTab() {
 
     <div id={PLANS_LIST_ID} className="scroll-mt-4 rounded-2xl border border-border bg-white p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="font-black text-[#173A2E]">Plans</h3><p className="mt-1 text-xs font-semibold text-[#879A91]">{canSubscribe ? 'One subscription covers all your Sync360 apps.' : 'Ask your business owner to change the plan.'}</p></div>
+        <div><h3 className="font-black text-[#173A2E]">Plans</h3><p className="mt-1 text-xs font-semibold text-[#879A91]">{domainUpgrade ? 'Sync Plus and higher plans include custom domains.' : canSubscribe ? 'One subscription covers all your Sync360 apps.' : 'Ask your business owner to change the plan.'}</p></div>
         <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-full bg-[#EDF4EF] p-1" role="tablist" aria-label="Billing period">{BILLING_PERIODS.map(item => <button key={item.value} type="button" role="tab" aria-selected={period === item.value} onClick={() => setPeriod(item.value)} className={cn('shrink-0 rounded-full px-4 py-2 text-xs font-black transition', period === item.value ? 'bg-[#173A2E] text-white' : 'text-[#24764F]')}>{item.label}</button>)}</div>
       </div>
       {plans.isError ? <div className="mt-5"><ErrorState title="We couldn’t load the plans" onRetry={() => void plans.refetch()}/></div>
         : plans.isLoading ? <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 3 }, (_, index) => <div key={index} className="h-80 animate-pulse rounded-2xl bg-[#F1F5F2]"/>)}</div>
-          : <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-3">{(plans.data ?? []).map(plan => {
+          : visiblePlans.length === 0 ? <p className="mt-5 rounded-xl border border-dashed border-border p-6 text-center text-xs font-semibold text-[#71867C]">No plans that include custom domains are currently available.</p>
+          : <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-3">{visiblePlans.map(plan => {
             const isCurrent = Boolean(current?.name) && plan.name.toLowerCase() === current?.name.toLowerCase()
             const price = plan.prices[priceKey] ?? 0
             return <div key={plan.id} className={cn('flex min-w-0 flex-col rounded-2xl border p-5', isCurrent ? 'border-[#329661] bg-[#F1FAF4]' : 'border-border')}>

@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, TimerOff } from 'lucide-react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { PlanLimitNote } from '@/components/ui/PlanNotice'
 import { ColorStatCard } from '@/components/ui/ColorStatCard'
@@ -7,6 +8,7 @@ import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BookingRow, BookingRowsSkeleton } from '@/features/bookings/components/BookingRow'
+import { CustomDomainPromptModal } from '@/features/storefront/components/CustomDomainPromptModal'
 import { cn } from '@/lib/cn'
 import { paths, servicesPath } from '@/routes/paths'
 import { useMiniCalendar } from './hooks/useMiniCalendar'
@@ -33,6 +35,8 @@ function MiniCalendar() {
 
 export default function OverviewPage() {
   const page = useOverview()
+  const navigate = useNavigate()
+  const [domainPromptOpen, setDomainPromptOpen] = useState(true)
   return <div className="mx-auto flex max-w-[1192px] flex-col gap-6 p-5 md:p-8">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0"><p className="mb-1 text-sm font-bold text-[#6F877B]">{page.dateLabel}</p><h1 className="text-3xl font-black tracking-[-0.035em] text-[#173A2E]">Overview</h1><p className="mt-1 text-sm font-semibold text-[#71867C]">{page.tagline}</p></div>
@@ -77,5 +81,6 @@ export default function OverviewPage() {
         </div>}
       </div>
     </section>
+    <CustomDomainPromptModal open={domainPromptOpen} onClose={() => setDomainPromptOpen(false)} onUpgrade={() => navigate(paths.customDomain)}/>
   </div>
 }

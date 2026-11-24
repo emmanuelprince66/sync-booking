@@ -4,6 +4,7 @@ import { fieldErrorClass, fieldLabelClass } from '@/components/ui/Field'
 import { PlanLockedCard } from '@/components/ui/PlanNotice'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
+import { paths } from '@/routes/paths'
 import { useCustomDomain } from '../hooks/useCustomDomain'
 
 const LOCKED_TITLE = 'Custom domains aren’t on your plan'
@@ -18,7 +19,7 @@ export function CustomDomainTab() {
   // Nothing saved yet and the plan doesn't include it: no form to fill, just the upgrade card.
   if (tab.locked && !tab.hasSaved) return <div className="rounded-2xl border border-border bg-white p-6">
     {header}
-    <PlanLockedCard className="mt-6" title={LOCKED_TITLE} text="Upgrade to put your booking page on an address like book.yourbusiness.com. Your free booking link keeps working on every plan."/>
+    <PlanLockedCard className="mt-6" title={LOCKED_TITLE} text="Upgrade to put your booking page on an address like book.yourbusiness.com. Your free booking link keeps working on every plan." upgradeTo={paths.customDomain}/>
   </div>
   return <form onSubmit={tab.onSubmit} noValidate className="rounded-2xl border border-border bg-white p-6">
     {header}
@@ -35,7 +36,7 @@ export function CustomDomainTab() {
       ? <div className="mt-5 rounded-xl bg-[#E2F7E9] p-4"><p className="text-xs font-black text-[#157443]">Domain approved</p><p className="mt-1 text-xs font-semibold leading-relaxed text-[#2F7D57]">Your booking page is live on this address.</p></div>
       : <div className="mt-5 rounded-xl bg-[#FFF4D8] p-4"><p className="text-xs font-black text-[#805B12]">{tab.status === 'pending' ? 'Waiting for verification' : 'DNS setup required'}</p><p className="mt-1 break-words text-xs font-semibold leading-relaxed text-[#8B713E]">Add a CNAME record pointing <strong>{tab.recordName}</strong> to <strong>{tab.dnsTarget}</strong>. Verification can take up to 24 hours.</p></div>}
     {tab.locked
-      ? <PlanLockedCard className="mt-5" title={LOCKED_TITLE} text="Your saved domain is shown here. Upgrade to change it or connect a new one."/>
+      ? <PlanLockedCard className="mt-5" title={LOCKED_TITLE} text="Your saved domain is shown here. Upgrade to change it or connect a new one." upgradeTo={paths.customDomain}/>
       : <div className="mt-5 flex justify-end"><Button type="submit" loading={tab.isSubmitting}>Verify domain</Button></div>}
   </form>
 }

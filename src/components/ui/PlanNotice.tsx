@@ -8,10 +8,10 @@ import { setupPath } from '@/routes/paths'
 const planLink = 'inline-flex shrink-0 items-center gap-1 text-xs font-black text-[#24764F] underline-offset-2 hover:text-[#173A2E] hover:underline'
 
 /** Link to Setup → Plan & billing for logins that can open Setup; others are asked to reach the owner. */
-function UpgradeAction({ label = 'See plans' }: { label?: string }) {
+function UpgradeAction({ label = 'See plans', to = setupPath('plan') }: { label?: string; to?: string }) {
   const { canManageBusiness } = usePermissions()
   return canManageBusiness
-    ? <Link to={setupPath('plan')} className={planLink}>{label} <ArrowRight size={13}/></Link>
+    ? <Link to={to} className={planLink}>{label} <ArrowRight size={13}/></Link>
     : <span className="text-xs font-bold text-[#8A6A12]">Ask your business owner to upgrade.</span>
 }
 
@@ -24,11 +24,11 @@ export function PlanLimitNote({ children, className }: { children: ReactNode; cl
 }
 
 /** A feature the current plan doesn't include (custom domain). */
-export function PlanLockedCard({ title, text, className }: { title: string; text: string; className?: string }) {
+export function PlanLockedCard({ title, text, className, upgradeTo }: { title: string; text: string; className?: string; upgradeTo?: string }) {
   return <div className={cn('flex flex-col gap-3 rounded-2xl bg-[#F4F8F5] p-4 sm:flex-row sm:items-center', className)}>
     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173A2E] text-[#D8FF72]"><Lock size={17}/></span>
     <div className="min-w-0 flex-1"><p className="text-sm font-black text-[#173A2E]">{title}</p><p className="mt-0.5 text-xs font-semibold leading-relaxed text-[#71867C]">{text}</p></div>
-    <UpgradeAction label="Upgrade plan"/>
+    <UpgradeAction label="Upgrade plan" to={upgradeTo}/>
   </div>
 }
 

@@ -7,7 +7,7 @@ import { pages } from './pages'
 import { paths } from './paths'
 import { AvailabilityRedirect, BranchDetailRedirect, BranchesRedirect, StorefrontRedirect, TeamRedirect } from './redirects'
 
-const { AuthPage, SelectBusinessPage, OverviewPage, CalendarPage, BookingsPage, WalletPage, ClientsPage, ClientDetailPage, ServicesPage, CategoriesPage, SettingsPage, KycPage } = pages
+const { AuthPage, SelectBusinessPage, OverviewPage, CalendarPage, BookingsPage, WalletPage, ClientsPage, ClientDetailPage, ServicesPage, CategoriesPage, CustomDomainPage, SettingsPage, KycPage } = pages
 
 export const router = createBrowserRouter([
   {
@@ -46,6 +46,7 @@ export const router = createBrowserRouter([
             children: [
               // Team, Branches and Storefront are tabs of Setup.
               { path: paths.storefront, element: <StorefrontRedirect/> },
+              { path: paths.customDomain, element: <CustomDomainPage/> },
               { path: paths.settings, element: <SettingsPage/> },
               { path: paths.team, element: <TeamRedirect/> },
               { path: paths.branches, element: <BranchesRedirect/> },

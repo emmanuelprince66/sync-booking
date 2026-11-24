@@ -16,6 +16,7 @@ export const paths = {
   serviceCategories: '/services/categories',
   availability: '/availability',
   storefront: '/storefront',
+  customDomain: '/custom-domain',
   settings: '/settings',
   kyc: '/kyc',
   team: '/team',
@@ -27,6 +28,9 @@ export const paths = {
 export const SETUP_TABS = ['kyc', 'payments', 'plan', 'domain', 'storefront', 'team', 'branches'] as const
 export type SetupTab = typeof SETUP_TABS[number]
 export const setupPath = (tab: SetupTab) => `${paths.settings}?tab=${tab}`
+
+/** Custom-domain upgrade plans, with lower tiers filtered out. */
+export const customDomainUpgradePath = () => `${setupPath('plan')}&upgrade=custom-domain`
 
 /** One branch's staff: a sub-view of Setup → Branches. */
 export const branchPath = (id: string) => `${paths.settings}?tab=branches&branch=${encodeURIComponent(id)}`
