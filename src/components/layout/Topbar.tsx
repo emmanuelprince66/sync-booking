@@ -2,6 +2,7 @@ import { Bell, Menu } from 'lucide-react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useMobileSidebar, useNotificationBell, useTopbar } from './hooks'
+import { InstallAppButton } from '@/components/pwa/InstallPrompt'
 import { ProfileMenu } from './ProfileMenu'
 
 const iconButtonClass = 'relative grid h-10 w-10 place-items-center rounded-xl border border-border bg-white text-[#476057] transition hover:-translate-y-0.5 hover:border-[#9DB1A9] hover:text-[#173A2E]'
@@ -45,6 +46,8 @@ export function Topbar() {
       </div>
     </div>
     <div className="flex shrink-0 items-center gap-2">
+      {/* Phones: icon only, so the greeting keeps its room. */}
+      <InstallAppButton className="max-sm:w-10 max-sm:justify-center max-sm:px-0 max-sm:[&>span]:sr-only"/>
       <NotificationBell/>
       <div className="hidden h-7 w-px bg-border sm:block" aria-hidden="true"/>
       <ProfileMenu/>
